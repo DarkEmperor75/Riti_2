@@ -1,0 +1,846 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+enum UserType {
+  ATTENDEE
+  HOST
+  VENDOR
+  ADMIN
+}
+
+enum UserStatus {
+  ACTIVE
+  SUSPENDED
+  INACTIVE
+}
+
+enum Language {
+  EN
+  NO
+}
+
+enum InitialIntent {
+  ATTEND
+  HOST
+  LIST_SPACE
+}
+
+enum AllowedCountries {
+  NO
+  SE
+  DK
+  IS
+  FI
+}
+
+enum HostStatus {
+  ACTIVE
+  PAYMENT_RESTRICTED
+  SUSPENDED
+}
+
+enum VendorStatus {
+  APPROVED
+  REJECTED
+  SUSPENDED
+}
+
+enum NotificationType {
+  // Account
+  EMAIL_VERIFIED
+
+  // Attendee - Event
+  TICKET_CONFIRMED
+  TICKET_CANCELLED
+  EVENT_CANCELLED
+  EVENT_REMINDER
+
+  // Attendee - Booking
+  BOOKING_APPROVED
+  BOOKING_REJECTED
+  BOOKING_CANCELLED
+  BOOKING_REMINDER
+  BOOKING_AUTO_REJECTED
+
+  // Payments
+  PAYMENT_SUCCESSFUL
+  REFUND_PROCESSED
+
+  // Host - Sales
+  TICKET_SOLD
+  EVENT_SOLD_OUT
+
+  // Host - Payout
+  PAYOUT_SCHEDULED
+  PAYOUT_SENT
+
+  // Host - Stripe
+  STRIPE_CONNECTED
+  STRIPE_DISABLED
+  STRIPE_CONNECTION_REMINDER
+
+  // Vendor - Space
+  NEW_BOOKING_REQUEST
+  SPACE_APPROVED
+  SPACE_REJECTED
+  SPACE_SUSPENDED
+
+  // Admin / System
+  ADMIN_NOTICE
+  ONBOARDING_REMINDER
+}
+
+enum EventStatus {
+  DRAFT
+  PUBLISHED
+  SOLD_OUT
+  CANCELLED
+  COMPLETED
+  SUSPENDED
+}
+
+enum EventType {
+  FREE
+  PAID
+}
+
+enum TicketStatus {
+  IN_PROGRESS
+  PURCHASED
+  EXPIRED
+  CANCELLED
+}
+
+enum TicketPaymentStatus {
+  NOT_STARTED
+  INITIATED
+  COMPLETED
+  FAILED
+  REFUNDED
+}
+
+enum TicketType {
+  REGULAR
+  STUDENT
+}
+
+enum PaymentStatus {
+  NOT_APPLICABLE
+  UNINITIATED
+  PROCESSING
+  COMPLETED
+}
+
+enum EventCategory {
+  MUSIC
+  WORKSHOP
+  BUSINESS
+  FOOD
+  ART
+  OTHER
+}
+
+enum BookingStatus {
+  PENDING
+  EXPIRED
+  APPROVED
+  REJECTED
+  PAID
+  COMPLETED
+  CANCELLED
+}
+
+enum SpaceStatus {
+  DRAFT
+  ACTIVE
+  APPROVED
+  REJECTED
+  PAUSED
+  UNDER_REVIEW
+  SUSPENDED
+}
+
+enum SpaceType {
+  STUDIO
+  YOGA_STUDIO
+  FITNESS_CENTER
+  ART_STUDIO
+
+  HALL
+  COMMUNITY_HALL
+  COMMUNITY_CENTER
+  CULTURAL_VENUE
+
+  GALLERY
+  EXHIBITION_SPACE
+
+  WORKSHOP
+  LABORATORY
+
+  AUDITORIUM
+  THEATER
+  STAGE
+
+  CONFERENCE_ROOM
+  MEETING_ROOM
+  BOARDROOM
+  COWORKING_SPACE
+  OFFICE
+
+  LIBRARY
+
+  RESTAURANT
+  CAFE
+
+  WELLNESS_SPACE
+  SAUNA
+  BATHHOUSE
+
+  RETAIL_SPACE
+
+  PRIVATE_HOME
+  LIVING_ROOM
+
+  OUTDOOR_SPACE
+  NATURE_SPACE
+  TERRACE
+
+  RETREAT_CENTER
+  FARM
+  CABIN
+
+  OTHER
+}
+
+enum SpaceAmenities {
+  WIFI
+  PARKING
+  AIR_CONDITIONING
+
+  PROJECTOR
+  SCREEN
+
+  SOUND_SYSTEM
+  MICROPHONES
+  STAGE
+
+  WHITEBOARD
+  FLIPCHART
+
+  DIMMABLE_LIGHTING
+  NATURAL_LIGHT
+
+  SEATING
+  TABLES
+  FLEXIBLE_LAYOUT
+  FURNITURE
+
+  MATS
+  CUSHIONS
+  MIRRORS
+
+  KITCHEN
+
+  TOILETS
+  CHANGING_ROOM
+  SHOWER
+
+  ACCESSIBILITY
+  WHEELCHAIR_ACCESSIBLE
+
+  OUTDOOR_AREA
+  TERRACE
+
+  WATER_ACCESS
+  SWIMMING
+
+  OUTSIDE_ALCOHOL_ALLOWED
+}
+
+enum StripePaymentStatus {
+  INITIATED
+  COMPLETED
+  REFUNDED
+}
+
+enum EmailStatus {
+  QUEUED
+  SENT
+  FAILED
+}
+
+enum EmailType {
+  // ALL USERS EMAILS
+  WELCOME
+  FORGOT_PASSWORD
+
+  // ATTENDEE + HOST
+  BOOKING_CONFIRMATION
+  BOOKING_CANCELLATION
+
+  // ATTENDEE EMAILS
+  EVENT_REMINDER
+  EVENT_REFUND_CONFIRMATION
+
+  // HOST EMAILS
+  EVENT_CANCELLATION
+  SPACE_REFUND_CONFIRMATION
+  EVENT_PAYOUT
+
+  // VENDOR EMAILS
+  SPACE_BOOKING_CONFIRMED
+  SPACE_BOOKING_CANCELLED
+  SPACE_BOOKING_PAYOUT
+}
+
+enum FinancialType {
+  BOOKING_PAYMENT
+  TICKET_PAYMENT
+  PLATFORM_FEE
+  PAYOUT
+  REFUND
+}
+
+enum FinancialStatus {
+  PENDING
+  COMPLETED
+  FAILED
+}
+
+enum FinancialActor {
+  VENDOR
+  HOST
+  ATTENDEE
+}
+
+enum PayoutActor {
+  VENDOR
+  HOST
+}
+
+enum PayoutStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+}
+
+model User {
+  id             String           @id @default(cuid())
+  email          String           @unique
+  hashedPassword String?
+  fullName       String
+  profilePicture String?
+  country        AllowedCountries @default(NO)
+  language       Language         @default(EN)
+  googleId       String?          @unique
+  termsAccepted  Boolean          @default(false)
+  initialIntent  InitialIntent    @default(ATTEND)
+  isAdmin        Boolean          @default(false)
+  userType       UserType         @default(ATTENDEE)
+  status         UserStatus       @default(ACTIVE)
+  city           String?
+
+  attendeeProfile Attendee?
+  hostProfile     Host?
+  vendorProfile   Vendor?
+
+  auditLogs AuditLog[]
+
+  bookings Booking[]
+
+  sessions      Session[]
+  refreshTokens RefreshToken[]
+
+  notifications Notification[]
+
+  suspendedAt      DateTime?
+  suspensionReason String?
+
+  passwordResetToken     String?
+  passwordResetExpiresAt DateTime?
+
+  spaces Space[]
+  emails Email[]
+
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+  financialLedgers FinancialLedger[]
+  payouts          Payout[]
+
+  @@index([email])
+  @@index([isAdmin])
+  @@index([googleId])
+  @@index([userType])
+  @@map("users")
+}
+
+model Attendee {
+  id          String  @id @default(cuid())
+  userId      String  @unique
+  user        User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  bio         String?
+  preferences Json?
+  phoneNumber String? @unique
+
+  isStudent Boolean @default(false)
+
+  tickets Ticket[]
+
+  stripeAccountId String? @unique
+  stripeOnboarded Boolean @default(false)
+  stripeVerified  Boolean @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  event     Event?   @relation(fields: [eventId], references: [id])
+  eventId   String?
+
+  @@index([userId])
+  @@map("attendees")
+}
+
+model Host {
+  id     String @id @default(cuid())
+  userId String @unique
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  bio              String
+  phoneNumber      String  @unique
+  website          String?
+  instagramUrl     String?
+  tikTokUrl        String?
+  twitterUrl       String?
+  otherSocialLinks String?
+  events           Event[]
+
+  stripeAccountId             String?           @unique
+  stripeAccountCountry        AllowedCountries?
+  stripeChargesEnabled        Boolean           @default(false)
+  stripePayoutsEnabled        Boolean           @default(false)
+  stripeDetailsSubmitted      Boolean           @default(false)
+  stripeDisabledReason        String?
+  stripeOnboardingCompletedAt DateTime?
+  stripeAccountCreatedAt      DateTime?
+
+  hostingStatus    HostStatus @default(ACTIVE)
+  suspendedAt      DateTime?
+  suspensionReason String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([stripeAccountId])
+  @@index([stripeDisabledReason])
+  @@index([stripeDetailsSubmitted])
+  @@index([stripePayoutsEnabled, stripeChargesEnabled])
+  @@index([stripeOnboardingCompletedAt])
+  @@index([hostingStatus])
+  @@index([userId])
+  @@map("hosts")
+}
+
+model Vendor {
+  id          String  @id @default(cuid())
+  userId      String  @unique
+  user        User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  description String?
+
+  isOnBoarded  Boolean      @default(false)
+  vendorStatus VendorStatus @default(APPROVED)
+
+  businessName String
+  contactPhone String
+  contactEmail String
+  businessPfp  String?
+
+  stripeAccountId             String?           @unique
+  stripeAccountCountry        AllowedCountries?
+  stripeChargesEnabled        Boolean           @default(false)
+  stripePayoutsEnabled        Boolean           @default(false)
+  stripeDetailsSubmitted      Boolean           @default(false)
+  stripeDisabledReason        String?
+  stripeOnboardingCompletedAt DateTime?
+  stripeAccountCreatedAt      DateTime?
+
+  spaces Space[]
+
+  approvedAt       DateTime?
+  approvedBy       String?
+  rejectionReason  String?
+  suspendedAt      DateTime?
+  suspensionReason String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([stripeAccountId])
+  @@index([stripeDisabledReason])
+  @@index([stripeDetailsSubmitted])
+  @@index([stripePayoutsEnabled, stripeChargesEnabled])
+  @@index([stripeOnboardingCompletedAt])
+  @@index([isOnBoarded])
+  @@index([vendorStatus])
+  @@index([userId])
+  @@map("vendors")
+}
+
+model Session {
+  id     String @id @default(cuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  token     String  @unique
+  userAgent String?
+  ipAddress String?
+
+  isRevoked  Boolean  @default(false)
+  expiresAt  DateTime
+  lastUsedAt DateTime @default(now())
+  createdAt  DateTime @default(now())
+
+  @@index([userId, isRevoked])
+  @@index([expiresAt])
+  @@index([token])
+  @@map("sessions")
+}
+
+model RefreshToken {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  token     String   @unique
+  isRevoked Boolean  @default(false)
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@index([userId, isRevoked])
+  @@index([expiresAt])
+  @@index([token])
+  @@map("refresh_tokens")
+}
+
+model Space {
+  id       String @id @default(cuid())
+  vendorId String
+  vendor   Vendor @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+
+  name            String
+  description     String
+  capacity        Int
+  address         String           @unique
+  location        String?           @unique
+
+  spaceType       SpaceType        @default(OTHER)
+  city            String
+  amenities       SpaceAmenities[]
+  rules           String[]
+  instructionsPdf SpacePdf[]
+  pricePerHour    Decimal
+
+  minBookingDurationHours Int?
+  minLeadTimeHours        Int?
+  multiDayBookingAllowed  Boolean?
+
+  status       SpaceStatus @default(UNDER_REVIEW)
+  adminReason  String?
+  reviewedAt   DateTime?
+  reviewedById String?
+  reviewedBy   User?       @relation(fields: [reviewedById], references: [id])
+
+  isSuspended Boolean @default(false)
+
+  images   SpaceImage[]
+  bookings Booking[]
+
+  daysBlocked DaysBlocked[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([status])
+  @@index([vendorId])
+  @@map("spaces")
+}
+
+model SpaceImage {
+  id      String @id @default(cuid())
+  spaceId String
+  space   Space  @relation(fields: [spaceId], references: [id], onDelete: Cascade)
+  url     String
+  order   Int    @default(0)
+
+  @@index([spaceId])
+  @@map("space_images")
+}
+
+model SpacePdf {
+  id      String  @id @default(cuid())
+  spaceId String
+  name    String?
+  space   Space   @relation(fields: [spaceId], references: [id], onDelete: Cascade)
+  url     String
+  order   Int     @default(0)
+
+  @@index([spaceId])
+  @@map("space_pdf")
+}
+
+model Booking {
+  id String @id @default(cuid())
+
+  spaceId String
+  space   Space  @relation(fields: [spaceId], references: [id], onDelete: Cascade)
+
+  bookingRejectionReason String?
+
+  renterId String
+  renter   User   @relation(fields: [renterId], references: [id], onDelete: Cascade)
+
+  startTime  DateTime
+  endTime    DateTime
+  totalPrice Decimal
+  status     BookingStatus @default(PENDING)
+
+  note String?
+
+  expiryTime DateTime?
+
+  events Event[]
+
+  stripeCheckoutSessionId String? @unique
+  stripePaymentIntentId   String? @unique
+  stripeChargeId          String? @unique
+  stripeTransferId        String? @unique
+
+  stripePaymentStatus StripePaymentStatus?
+  stripeRefundId      String?              @unique
+  refundedAt          DateTime?
+
+  applicationFeeAmount Int?
+  vendorPayoutAmount   Int?
+
+  payoutReleasedAt DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([status, endTime])
+  @@index([renterId])
+  @@index([spaceId])
+  @@map("bookings")
+}
+
+model Event {
+  id String @id @default(cuid())
+
+  hostId String
+  host   Host   @relation(fields: [hostId], references: [id])
+
+  eventType EventType @default(FREE)
+
+  bookingId String?  
+  booking   Booking? @relation(fields: [bookingId], references: [id], onDelete: SetNull)
+
+  title       String
+  description String
+  category    EventCategory
+
+  startTime DateTime?
+  endTime   DateTime?
+
+  price           Decimal @default(0)
+  studentDiscount Int     @default(0)
+
+  capacity Int?
+
+  reminderSent Boolean @default(false)
+
+  status EventStatus @default(DRAFT)
+
+  suspendedAt      DateTime?
+  suspensionReason String?
+
+  payoutStatus PaymentStatus @default(UNINITIATED)
+
+  coverImg    String?
+  tickets     Ticket[]
+  ticketsSold Int        @default(0)
+  attendees   Attendee[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([startTime])
+  @@index([price])
+  @@index([category])
+  @@map("events")
+}
+
+model Ticket {
+  id         String   @id @default(cuid())
+  attendeeId String
+  attendee   Attendee @relation(fields: [attendeeId], references: [id])
+
+  eventId String
+  event   Event  @relation(fields: [eventId], references: [id])
+
+  ticketType TicketType
+
+  pricePaid Decimal
+
+  status              TicketStatus        @default(IN_PROGRESS)
+  paymentStatus       TicketPaymentStatus @default(NOT_STARTED)
+  paymentExpiresAt    DateTime?
+  paymentAttemptCount Int                 @default(0)
+
+  isRefunded Boolean @default(false)
+
+  stripeCheckoutSessionId String?   @unique
+  stripePaymentIntentId   String?
+  stripeChargeId          String?
+  stripeTransferId        String?
+  refundedAt              DateTime?
+
+  cancelledAt DateTime?
+
+  createdAt DateTime @default(now())
+  updateAt  DateTime @updatedAt
+
+  @@index([eventId])
+  @@index([status])
+  @@index([paymentAttemptCount, paymentStatus, paymentExpiresAt])
+  @@map("tickets")
+}
+
+model AuditLog {
+  id         String   @id @default(cuid())
+  action     String
+  entityId   String
+  entityType String
+  adminId    String
+  admin      User     @relation(fields: [adminId], references: [id])
+  reason     String?
+  oldStatus  String?
+  newStatus  String
+  createdAt  DateTime @default(now())
+
+  @@index([adminId])
+  @@index([entityType, entityId])
+  @@map("audit_logs")
+}
+
+model Notification {
+  id        String           @id @default(cuid())
+  userId    String
+  user      User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type      NotificationType
+  title     String
+  message   String
+  read      Boolean          @default(false)
+  meta      Json?
+  createdAt DateTime         @default(now())
+  updatedAt DateTime         @updatedAt
+
+  @@index([userId])
+  @@index([createdAt])
+  @@map("notifications")
+}
+
+model Email {
+  id        String      @id @default(cuid())
+  userId    String?
+  user      User?       @relation(fields: [userId], references: [id], onDelete: SetNull)
+  type      EmailType
+  status    EmailStatus @default(QUEUED)
+  to        String[]
+  subject   String
+  language  String
+  htmlBody  String
+  textBody  String?
+  error     String?
+  metadata  Json?
+  createdAt DateTime    @default(now())
+  updatedAt DateTime    @updatedAt
+
+  @@index([userId])
+  @@index([status])
+  @@index([createdAt])
+  @@map("emails")
+}
+
+model DaysBlocked {
+  id String @id @default(cuid())
+
+  spaceId String
+  space   Space  @relation(fields: [spaceId], references: [id], onDelete: Cascade)
+
+  startingDate DateTime
+  endingDate   DateTime
+
+  reason String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([spaceId, startingDate, endingDate])
+  @@map("days_blocked")
+}
+
+model FinancialLedger {
+  id String @id @default(cuid())
+
+  reference   String @unique
+  description String
+
+  type   FinancialType
+  status FinancialStatus
+
+  amount   Decimal
+  currency String  @default("NOK")
+
+  actorType FinancialActor?
+  actorId   String?
+  actor     User?           @relation(fields: [actorId], references: [id], onDelete: SetNull)
+
+  bookingId String?
+  ticketId  String?
+
+  createdAt DateTime @default(now())
+
+  @@index([type])
+  @@index([actorType, actorId])
+  @@index([createdAt])
+  @@map("financial_ledger")
+}
+
+model Payout {
+  id String @id @default(cuid())
+
+  actorType PayoutActor
+  actorId   String?
+  actor     User?       @relation(fields: [actorId], references: [id], onDelete: SetNull)
+
+  stripeTransferId String?
+
+  amount   Decimal
+  currency String  @default("NOK")
+
+  method String @default("BANK_TRANSFER")
+
+  status PayoutStatus
+
+  processedAt DateTime?
+  createdAt   DateTime  @default(now())
+
+  @@index([actorType, actorId])
+  @@index([status])
+  @@map("payouts")
+}

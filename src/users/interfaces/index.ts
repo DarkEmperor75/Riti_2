@@ -1,0 +1,1 @@
+export * from './pfp-upload-response.interface'

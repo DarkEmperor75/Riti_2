@@ -1,0 +1,5 @@
+-- CreateEnum
+CREATE TYPE "SpaceAmenities" AS ENUM ('WIFI', 'PARKING', 'AIR_CONDITIONING', 'KITCHEN', 'PROJECTOR', 'WHITEBOARD', 'SOUND_SYSTEM', 'NATURAL_LIGHT', 'FURNITURE', 'ACCESSIBILITY');
+
+-- AlterTable
+ALTER TABLE "spaces" ADD COLUMN     "amenities" "SpaceAmenities"[];

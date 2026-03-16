@@ -1,0 +1,6 @@
+export * from './create-event.dto'
+export * from './update-event.dto'
+export * from './event-response.dto'
+export * from './host-event-attendee.dto'
+export * from './host-event-attendees-response.dto'
+export * from './host-event-stats.dto'

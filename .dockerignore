@@ -1,0 +1,13 @@
+*.pem
+node_modules
+.git
+.gitignore
+.env
+.env.*
+.dist
+tests
+scripts
+dev
+.vscode
+*.log
+.DS_Store
