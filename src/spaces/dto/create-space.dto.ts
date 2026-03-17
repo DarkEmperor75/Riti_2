@@ -171,7 +171,6 @@ export class CreateSpaceDto {
         description: 'Allow bookings spanning multiple days',
         example: true,
     })
-    @Type(() => Boolean)
     @IsBoolean({ message: 'Must be a boolean' })
     @IsOptional()
     multiDayBookingAllowed?: boolean;
