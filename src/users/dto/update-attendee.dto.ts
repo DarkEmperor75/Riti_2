@@ -24,7 +24,6 @@ export class UpdateAttendeeProfileDto {
     @ApiPropertyOptional({ example: 'true' })
     @IsOptional()
     @IsBoolean()
-    @Transform(({ value }) => value === Boolean(value))
     isStudent?: boolean;
 
     @ApiPropertyOptional({

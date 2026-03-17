@@ -19,7 +19,16 @@ import {
     UserProfileResponseDto,
     VendorProfileResponseDto,
 } from '../dto';
-import { Attendee, Host, Prisma, User, UserStatus, UserType, Vendor, VendorStatus } from '@prisma/client';
+import {
+    Attendee,
+    Host,
+    Prisma,
+    User,
+    UserStatus,
+    UserType,
+    Vendor,
+    VendorStatus,
+} from '@prisma/client';
 import { StorageService } from 'src/common/services';
 import { PfpUploadResponse, PfpDeleteResponse } from '../interfaces';
 import * as bcrypt from 'bcrypt';
@@ -100,8 +109,7 @@ export class UsersService {
         if (!Object.values(UserType).includes(type))
             return {
                 succes: false,
-                message:
-                    'Invalid user type, valid types are HOST and ATTENDEE',
+                message: 'Invalid user type, valid types are HOST and ATTENDEE',
             };
 
         if (type === UserType.ADMIN)
@@ -253,7 +261,9 @@ export class UsersService {
                     ...(dto.preferences
                         ? { preferences: dto.preferences }
                         : {}),
-                    ...(dto.isStudent ? { isStudent: dto.isStudent } : {}),
+                    ...(dto.isStudent !== undefined
+                        ? { isStudent: dto.isStudent }
+                        : {}),
                     ...(dto.phoneNumber
                         ? { phoneNumber: dto.phoneNumber }
                         : {}),
@@ -719,8 +729,6 @@ export class UsersService {
         attendee: Attendee,
     ): AttendeeResponseDto {
         try {
-            this.logger.debug('Building attendee response', attendee);
-
             return {
                 id: user.id,
                 email: user.email,
@@ -732,6 +740,7 @@ export class UsersService {
                 ...(attendee.preferences
                     ? { preferences: attendee.preferences }
                     : {}),
+                isStudent: attendee.isStudent,
                 profilePicture: user.profilePicture,
                 city: user.city!,
                 userType: user.userType,
@@ -791,7 +800,9 @@ export class UsersService {
                 businessName: vendor.businessName,
                 contactEmail: vendor.contactEmail,
                 contactPhone: vendor.contactPhone,
-                ...(vendor.description ? { description: vendor.description } : undefined),
+                ...(vendor.description
+                    ? { description: vendor.description }
+                    : undefined),
                 city: user.city!,
             };
         } catch (error) {
