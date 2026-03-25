@@ -3,8 +3,12 @@ import {
     ConflictException,
     ForbiddenException,
 } from '@nestjs/common';
-import { Prisma, SpaceStatus } from '@prisma/client';
+import { AllowedCountries, Prisma, SpaceStatus } from '@prisma/client';
 import { CreateSpaceDto, UpdateSpaceDto } from '../dto';
+import {
+    COUNTRY_TIMEZONE_MAP,
+    DEFAULT_TIMEZONE,
+} from 'src/common/constants/timezone.constants';
 
 type PauseSpacePayloadType = Prisma.SpaceGetPayload<{
     include: {
@@ -72,7 +76,9 @@ export class SpaceEntity {
             space.status === SpaceStatus.UNDER_REVIEW ||
             space.status === SpaceStatus.ACTIVE
         ) {
-            throw new ForbiddenException('Cannot update spaces which are active, suspended or under review');
+            throw new ForbiddenException(
+                'Cannot update spaces which are active, suspended or under review',
+            );
         }
 
         if (
@@ -94,7 +100,7 @@ export class SpaceEntity {
         if (dto.status) {
             if (
                 dto.status !== SpaceStatus.REJECTED &&
-                dto.status !== SpaceStatus.DRAFT && 
+                dto.status !== SpaceStatus.DRAFT &&
                 dto.status !== SpaceStatus.ACTIVE
             ) {
                 throw new BadRequestException(
@@ -126,11 +132,16 @@ export class SpaceEntity {
         if (space.status === SpaceStatus.PAUSED) {
             throw new BadRequestException('Space already paused');
         }
+        if (space.status === SpaceStatus.REJECTED) {
+            throw new BadRequestException('Cannot pause rejected space');
+        }
         if (space.status === SpaceStatus.UNDER_REVIEW) {
             throw new BadRequestException('Cannot pause pending review spaces');
         }
         if (space.status === SpaceStatus.SUSPENDED) {
-            throw new BadRequestException('Space already paused');
+            throw new BadRequestException(
+                'Space is suspended, you cannot pause it',
+            );
         }
     }
 
@@ -151,7 +162,9 @@ export class SpaceEntity {
         dto: CreateSpaceDto,
         city: string,
         vendorId: string,
+        country: AllowedCountries,
     ): Prisma.SpaceCreateInput {
+        const timezone = COUNTRY_TIMEZONE_MAP[country] ?? DEFAULT_TIMEZONE;
         return {
             vendor: {
                 connect: { id: vendorId },
@@ -165,6 +178,7 @@ export class SpaceEntity {
             amenities: dto.amenities,
             pricePerHour: dto.pricePerHour,
             location: dto.location,
+            timezone,
             ...(dto.rules !== undefined && { rules: dto.rules }),
             ...(dto.minBookingDurationHours !== undefined && {
                 minBookingDurationHours: dto.minBookingDurationHours,

@@ -1,0 +1,664 @@
+//// ------------------------------------------------------
+//// THIS FILE WAS AUTOMATICALLY GENERATED (DO NOT MODIFY)
+//// ------------------------------------------------------
+
+Table users {
+  id String [pk]
+  email String [unique, not null]
+  hashedPassword String
+  fullName String [not null]
+  profilePicture String
+  country AllowedCountries
+  language Language [not null, default: 'EN']
+  googleId String [unique]
+  termsAccepted Boolean [not null, default: false]
+  initialIntent InitialIntent
+  isAdmin Boolean [not null, default: false]
+  userType UserType [not null, default: 'ATTENDEE']
+  status UserStatus [not null, default: 'ACTIVE']
+  city String
+  attendeeProfile attendees
+  hostProfile hosts
+  vendorProfile vendors
+  auditLogs audit_logs [not null]
+  bookings bookings [not null]
+  sessions sessions [not null]
+  refreshTokens refresh_tokens [not null]
+  notifications notifications [not null]
+  suspendedAt DateTime
+  suspensionReason String
+  passwordResetToken String
+  passwordResetExpiresAt DateTime
+  spaces spaces [not null]
+  emails emails [not null]
+  createdAt DateTime [default: `now()`, not null]
+  updatedAt DateTime [not null]
+  financialLedgers financial_ledger [not null]
+  payouts payouts [not null]
+}
+
+Table attendees {
+  id String [pk]
+  userId String [unique, not null]
+  user users [not null]
+  bio String
+  preferences Json
+  phoneNumber String
+  isStudent Boolean [not null, default: false]
+  tickets tickets [not null]
+  stripeAccountId String [unique]
+  stripeOnboarded Boolean [not null, default: false]
+  stripeVerified Boolean [not null, default: false]
+  createdAt DateTime [default: `now()`, not null]
+  updatedAt DateTime [not null]
+  event events
+  eventId String
+}
+
+Table hosts {
+  id String [pk]
+  userId String [unique, not null]
+  user users [not null]
+  bio String [not null]
+  phoneNumber String [not null]
+  website String
+  instagramUrl String
+  tikTokUrl String
+  twitterUrl String
+  otherSocialLinks String
+  events events [not null]
+  stripeAccountId String [unique]
+  stripeAccountCountry AllowedCountries
+  stripeChargesEnabled Boolean [not null, default: false]
+  stripePayoutsEnabled Boolean [not null, default: false]
+  stripeDetailsSubmitted Boolean [not null, default: false]
+  stripeDisabledReason String
+  stripeOnboardingCompletedAt DateTime
+  stripeAccountCreatedAt DateTime
+  hostingStatus HostStatus [not null, default: 'ACTIVE']
+  suspendedAt DateTime
+  suspensionReason String
+  createdAt DateTime [default: `now()`, not null]
+  updatedAt DateTime [not null]
+}
+
+Table vendors {
+  id String [pk]
+  userId String [unique, not null]
+  user users [not null]
+  description String
+  isOnBoarded Boolean [not null, default: false]
+  vendorStatus VendorStatus [not null, default: 'APPROVED']
+  businessName String [not null]
+  contactPhone String [not null]
+  contactEmail String [not null]
+  businessPfp String
+  stripeAccountId String [unique]
+  stripeAccountCountry AllowedCountries
+  stripeChargesEnabled Boolean [not null, default: false]
+  stripePayoutsEnabled Boolean [not null, default: false]
+  stripeDetailsSubmitted Boolean [not null, default: false]
+  stripeDisabledReason String
+  stripeOnboardingCompletedAt DateTime
+  stripeAccountCreatedAt DateTime
+  spaces spaces [not null]
+  approvedAt DateTime
+  approvedBy String
+  rejectionReason String
+  suspendedAt DateTime
+  suspensionReason String
+  createdAt DateTime [default: `now()`, not null]
+  updatedAt DateTime [not null]
+}
+
+Table sessions {
+  id String [pk]
+  userId String [not null]
+  user users [not null]
+  token String [unique, not null]
+  userAgent String
+  ipAddress String
+  isRevoked Boolean [not null, default: false]
+  expiresAt DateTime [not null]
+  lastUsedAt DateTime [default: `now()`, not null]
+  createdAt DateTime [default: `now()`, not null]
+}
+
+Table refresh_tokens {
+  id String [pk]
+  userId String [not null]
+  user users [not null]
+  token String [unique, not null]
+  isRevoked Boolean [not null, default: false]
+  expiresAt DateTime [not null]
+  createdAt DateTime [default: `now()`, not null]
+}
+
+Table spaces {
+  id String [pk]
+  vendorId String [not null]
+  vendor vendors [not null]
+  name String [not null]
+  description String [not null]
+  capacity Int [not null]
+  address String [not null]
+  location String
+  spaceType SpaceType [not null, default: 'OTHER']
+  city String [not null]
+  amenities SpaceAmenities[] [not null]
+  rules String[] [not null]
+  instructionsPdf space_pdf [not null]
+  pricePerHour Decimal [not null]
+  minBookingDurationHours Int
+  minLeadTimeHours Int
+  multiDayBookingAllowed Boolean
+  status SpaceStatus [not null, default: 'UNDER_REVIEW']
+  adminReason String
+  reviewedAt DateTime
+  reviewedById String
+  reviewedBy users
+  isSuspended Boolean [not null, default: false]
+  timezone String
+  images space_images [not null]
+  bookings bookings [not null]
+  daysBlocked days_blocked [not null]
+  createdAt DateTime [default: `now()`, not null]
+  updatedAt DateTime [not null]
+}
+
+Table space_images {
+  id String [pk]
+  spaceId String [not null]
+  space spaces [not null]
+  url String [not null]
+  order Int [not null, default: 0]
+}
+
+Table space_pdf {
+  id String [pk]
+  spaceId String [not null]
+  name String
+  space spaces [not null]
+  url String [not null]
+  order Int [not null, default: 0]
+}
+
+Table bookings {
+  id String [pk]
+  spaceId String [not null]
+  space spaces [not null]
+  bookingRejectionReason String
+  renterId String [not null]
+  renter users [not null]
+  startTime DateTime [not null]
+  endTime DateTime [not null]
+  totalPrice Decimal [not null]
+  status BookingStatus [not null, default: 'PENDING']
+  note String
+  expiryTime DateTime
+  events events [not null]
+  stripeCheckoutSessionId String [unique]
+  stripePaymentIntentId String [unique]
+  stripeChargeId String [unique]
+  stripeTransferId String [unique]
+  stripePaymentStatus StripePaymentStatus
+  stripeRefundId String [unique]
+  refundedAt DateTime
+  applicationFeeAmount Int
+  vendorPayoutAmount Int
+  payoutReleasedAt DateTime
+  createdAt DateTime [default: `now()`, not null]
+  updatedAt DateTime [not null]
+}
+
+Table events {
+  id String [pk]
+  hostId String [not null]
+  host hosts [not null]
+  eventType EventType [not null, default: 'FREE']
+  bookingId String
+  booking bookings
+  title String [not null]
+  description String [not null]
+  category EventCategory [not null]
+  startTime DateTime
+  endTime DateTime
+  price Decimal [not null, default: 0]
+  studentDiscount Int [not null, default: 0]
+  capacity Int
+  reminderSent Boolean [not null, default: false]
+  status EventStatus [not null, default: 'DRAFT']
+  suspendedAt DateTime
+  suspensionReason String
+  payoutStatus PaymentStatus [not null, default: 'UNINITIATED']
+  coverImg String
+  tickets tickets [not null]
+  ticketsSold Int [not null, default: 0]
+  attendees attendees [not null]
+  createdAt DateTime [default: `now()`, not null]
+  updatedAt DateTime [not null]
+}
+
+Table tickets {
+  id String [pk]
+  attendeeId String [not null]
+  attendee attendees [not null]
+  eventId String [not null]
+  event events [not null]
+  ticketType TicketType [not null]
+  pricePaid Decimal [not null]
+  status TicketStatus [not null, default: 'IN_PROGRESS']
+  paymentStatus TicketPaymentStatus [not null, default: 'NOT_STARTED']
+  paymentExpiresAt DateTime
+  paymentAttemptCount Int [not null, default: 0]
+  isRefunded Boolean [not null, default: false]
+  stripeCheckoutSessionId String [unique]
+  stripePaymentIntentId String
+  stripeChargeId String
+  stripeTransferId String
+  refundedAt DateTime
+  cancelledAt DateTime
+  createdAt DateTime [default: `now()`, not null]
+  updateAt DateTime [not null]
+}
+
+Table audit_logs {
+  id String [pk]
+  action String [not null]
+  entityId String [not null]
+  entityType String [not null]
+  adminId String [not null]
+  admin users [not null]
+  reason String
+  oldStatus String
+  newStatus String [not null]
+  createdAt DateTime [default: `now()`, not null]
+}
+
+Table notifications {
+  id String [pk]
+  userId String [not null]
+  user users [not null]
+  type NotificationType [not null]
+  title String [not null]
+  message String [not null]
+  read Boolean [not null, default: false]
+  meta Json
+  createdAt DateTime [default: `now()`, not null]
+  updatedAt DateTime [not null]
+}
+
+Table emails {
+  id String [pk]
+  userId String
+  user users
+  type EmailType [not null]
+  status EmailStatus [not null, default: 'QUEUED']
+  to String[] [not null]
+  subject String [not null]
+  language String [not null]
+  htmlBody String [not null]
+  textBody String
+  error String
+  metadata Json
+  createdAt DateTime [default: `now()`, not null]
+  updatedAt DateTime [not null]
+}
+
+Table days_blocked {
+  id String [pk]
+  spaceId String [not null]
+  space spaces [not null]
+  startingDate DateTime [not null]
+  endingDate DateTime [not null]
+  reason String
+  createdAt DateTime [default: `now()`, not null]
+  updatedAt DateTime [not null]
+}
+
+Table financial_ledger {
+  id String [pk]
+  reference String [unique, not null]
+  description String [not null]
+  type FinancialType [not null]
+  status FinancialStatus [not null]
+  amount Decimal [not null]
+  currency String [not null, default: 'NOK']
+  actorType FinancialActor
+  actorId String
+  actor users
+  bookingId String
+  ticketId String
+  createdAt DateTime [default: `now()`, not null]
+}
+
+Table payouts {
+  id String [pk]
+  actorType PayoutActor [not null]
+  actorId String
+  actor users
+  stripeTransferId String
+  amount Decimal [not null]
+  currency String [not null, default: 'NOK']
+  method String [not null, default: 'BANK_TRANSFER']
+  status PayoutStatus [not null]
+  processedAt DateTime
+  createdAt DateTime [default: `now()`, not null]
+}
+
+Enum UserType {
+  ATTENDEE
+  HOST
+  VENDOR
+  ADMIN
+}
+
+Enum UserStatus {
+  ACTIVE
+  SUSPENDED
+  INACTIVE
+}
+
+Enum Language {
+  EN
+  NO
+}
+
+Enum InitialIntent {
+  ATTEND
+  HOST
+  LIST_SPACE
+}
+
+Enum AllowedCountries {
+  NO
+  SE
+  DK
+  IS
+  FI
+}
+
+Enum HostStatus {
+  ACTIVE
+  PAYMENT_RESTRICTED
+  SUSPENDED
+}
+
+Enum VendorStatus {
+  APPROVED
+  REJECTED
+  SUSPENDED
+}
+
+Enum NotificationType {
+  EMAIL_VERIFIED
+  TICKET_CONFIRMED
+  TICKET_CANCELLED
+  EVENT_CANCELLED
+  EVENT_REMINDER
+  BOOKING_APPROVED
+  BOOKING_REJECTED
+  BOOKING_CANCELLED
+  BOOKING_REMINDER
+  BOOKING_AUTO_REJECTED
+  PAYMENT_SUCCESSFUL
+  REFUND_PROCESSED
+  TICKET_SOLD
+  EVENT_SOLD_OUT
+  PAYOUT_SCHEDULED
+  PAYOUT_SENT
+  STRIPE_CONNECTED
+  STRIPE_DISABLED
+  STRIPE_CONNECTION_REMINDER
+  NEW_BOOKING_REQUEST
+  SPACE_APPROVED
+  SPACE_REJECTED
+  SPACE_SUSPENDED
+  ADMIN_NOTICE
+  ONBOARDING_REMINDER
+}
+
+Enum EventStatus {
+  DRAFT
+  PUBLISHED
+  SOLD_OUT
+  CANCELLED
+  COMPLETED
+  SUSPENDED
+}
+
+Enum EventType {
+  FREE
+  PAID
+}
+
+Enum TicketStatus {
+  IN_PROGRESS
+  PURCHASED
+  EXPIRED
+  CANCELLED
+}
+
+Enum TicketPaymentStatus {
+  NOT_STARTED
+  INITIATED
+  COMPLETED
+  FAILED
+  REFUNDED
+}
+
+Enum TicketType {
+  REGULAR
+  STUDENT
+}
+
+Enum PaymentStatus {
+  NOT_APPLICABLE
+  UNINITIATED
+  PROCESSING
+  COMPLETED
+}
+
+Enum EventCategory {
+  MUSIC
+  WORKSHOP
+  BUSINESS
+  FOOD
+  ART
+  OTHER
+}
+
+Enum BookingStatus {
+  PENDING
+  EXPIRED
+  APPROVED
+  REJECTED
+  PAID
+  COMPLETED
+  CANCELLED
+}
+
+Enum SpaceStatus {
+  DRAFT
+  ACTIVE
+  APPROVED
+  REJECTED
+  PAUSED
+  UNDER_REVIEW
+  SUSPENDED
+}
+
+Enum SpaceType {
+  STUDIO
+  YOGA_STUDIO
+  FITNESS_CENTER
+  ART_STUDIO
+  HALL
+  COMMUNITY_HALL
+  COMMUNITY_CENTER
+  CULTURAL_VENUE
+  GALLERY
+  EXHIBITION_SPACE
+  WORKSHOP
+  LABORATORY
+  AUDITORIUM
+  THEATER
+  STAGE
+  CONFERENCE_ROOM
+  MEETING_ROOM
+  BOARDROOM
+  COWORKING_SPACE
+  OFFICE
+  LIBRARY
+  RESTAURANT
+  CAFE
+  WELLNESS_SPACE
+  SAUNA
+  BATHHOUSE
+  RETAIL_SPACE
+  PRIVATE_HOME
+  LIVING_ROOM
+  OUTDOOR_SPACE
+  NATURE_SPACE
+  TERRACE
+  RETREAT_CENTER
+  FARM
+  CABIN
+  OTHER
+}
+
+Enum SpaceAmenities {
+  WIFI
+  PARKING
+  AIR_CONDITIONING
+  PROJECTOR
+  SCREEN
+  SOUND_SYSTEM
+  MICROPHONES
+  STAGE
+  WHITEBOARD
+  FLIPCHART
+  DIMMABLE_LIGHTING
+  NATURAL_LIGHT
+  SEATING
+  TABLES
+  FLEXIBLE_LAYOUT
+  FURNITURE
+  MATS
+  CUSHIONS
+  MIRRORS
+  KITCHEN
+  TOILETS
+  CHANGING_ROOM
+  SHOWER
+  ACCESSIBILITY
+  WHEELCHAIR_ACCESSIBLE
+  OUTDOOR_AREA
+  TERRACE
+  WATER_ACCESS
+  SWIMMING
+  OUTSIDE_ALCOHOL_ALLOWED
+}
+
+Enum StripePaymentStatus {
+  INITIATED
+  COMPLETED
+  REFUNDED
+}
+
+Enum EmailStatus {
+  QUEUED
+  SENT
+  FAILED
+}
+
+Enum EmailType {
+  WELCOME
+  FORGOT_PASSWORD
+  BOOKING_CONFIRMATION
+  BOOKING_CANCELLATION
+  EVENT_REMINDER
+  EVENT_REFUND_CONFIRMATION
+  EVENT_CANCELLATION
+  SPACE_REFUND_CONFIRMATION
+  EVENT_PAYOUT
+  SPACE_BOOKING_CONFIRMED
+  SPACE_BOOKING_CANCELLED
+  SPACE_BOOKING_PAYOUT
+}
+
+Enum FinancialType {
+  BOOKING_PAYMENT
+  TICKET_PAYMENT
+  PLATFORM_FEE
+  PAYOUT
+  REFUND
+}
+
+Enum FinancialStatus {
+  PENDING
+  COMPLETED
+  FAILED
+}
+
+Enum FinancialActor {
+  VENDOR
+  HOST
+  ATTENDEE
+}
+
+Enum PayoutActor {
+  VENDOR
+  HOST
+}
+
+Enum PayoutStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+}
+
+Ref: attendees.userId - users.id [delete: Cascade]
+
+Ref: attendees.eventId > events.id
+
+Ref: hosts.userId - users.id [delete: Cascade]
+
+Ref: vendors.userId - users.id [delete: Cascade]
+
+Ref: sessions.userId > users.id [delete: Cascade]
+
+Ref: refresh_tokens.userId > users.id [delete: Cascade]
+
+Ref: spaces.vendorId > vendors.id [delete: Cascade]
+
+Ref: spaces.reviewedById > users.id
+
+Ref: space_images.spaceId > spaces.id [delete: Cascade]
+
+Ref: space_pdf.spaceId > spaces.id [delete: Cascade]
+
+Ref: bookings.spaceId > spaces.id [delete: Cascade]
+
+Ref: bookings.renterId > users.id [delete: Cascade]
+
+Ref: events.hostId > hosts.id
+
+Ref: events.bookingId > bookings.id [delete: Set Null]
+
+Ref: tickets.attendeeId > attendees.id [delete: Cascade]
+
+Ref: tickets.eventId > events.id
+
+Ref: audit_logs.adminId > users.id
+
+Ref: notifications.userId > users.id [delete: Cascade]
+
+Ref: emails.userId > users.id [delete: Set Null]
+
+Ref: days_blocked.spaceId > spaces.id [delete: Cascade]
+
+Ref: financial_ledger.actorId > users.id [delete: Set Null]
+
+Ref: payouts.actorId > users.id [delete: Set Null]

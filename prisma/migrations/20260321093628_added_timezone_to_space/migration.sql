@@ -1,0 +1,3 @@
+-- AlterTable
+ALTER TABLE "users" ALTER COLUMN "country" DROP NOT NULL,
+ALTER COLUMN "country" DROP DEFAULT;

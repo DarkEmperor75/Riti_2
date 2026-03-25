@@ -6,7 +6,7 @@ import {
     Logger,
     NotFoundException,
 } from '@nestjs/common';
-import { StorageService } from 'src/common/services';
+import { StorageService, TimezoneService } from 'src/common/services';
 import { DatabaseService } from 'src/database/database.service';
 import {
     CreateEventDto,
@@ -41,6 +41,7 @@ import { ApiFail } from 'src/common/types';
 import { plainToInstance } from 'class-transformer';
 import { NotificationsService } from 'src/notifications/services';
 import { TicketPricingService } from 'src/tickets/services';
+import { DEFAULT_TIMEZONE } from 'src/common/constants/timezone.constants';
 
 @Injectable()
 export class EventsService {
@@ -51,6 +52,7 @@ export class EventsService {
         private usersService: UsersService,
         private notificationsService: NotificationsService,
         private ticketPricingService: TicketPricingService,
+        private tzService: TimezoneService,
     ) {}
 
     async createEvent(
@@ -703,6 +705,7 @@ export class EventsService {
                 ticketsSold: true,
                 booking: {
                     select: {
+                        id: true,
                         space: {
                             select: {
                                 address: true,
@@ -729,6 +732,7 @@ export class EventsService {
 
         return plainToInstance(HostEventResponseDto, {
             id: event.id,
+            bookingId: event.booking?.id,
             title: event.title,
             eventDate: event.startTime,
             capacityUsed: `${event.ticketsSold}/${event.capacity ?? 0}`,
@@ -774,10 +778,18 @@ export class EventsService {
         if (filters.date_from || filters.date_to) {
             where.startTime = {};
             if (filters.date_from) {
-                (where.startTime as any).gte = new Date(filters.date_from);
+                (where.startTime as any).gte = this.tzService.parseLocalToUTC(
+                    filters.date_from,
+                    '00:00',
+                    DEFAULT_TIMEZONE,
+                );
             }
             if (filters.date_to) {
-                (where.startTime as any).lte = new Date(filters.date_to);
+                (where.startTime as any).lte = this.tzService.parseLocalToUTC(
+                    filters.date_to,
+                    '23:59',
+                    DEFAULT_TIMEZONE,
+                );
             }
         }
 

@@ -1,6 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { EventStatus, NotificationType } from '@prisma/client';
+import { TimezoneService } from 'src/common/services';
 import { DatabaseService } from 'src/database/database.service';
 import { EmailsService } from 'src/emails/services';
 import { NotificationsService } from 'src/notifications/services';
@@ -13,6 +14,7 @@ export class EventCronService {
         private readonly db: DatabaseService,
         private notificationsService: NotificationsService,
         private emailsService: EmailsService,
+        private tzService: TimezoneService,
     ) {}
 
     @Cron(CronExpression.EVERY_3_HOURS)
@@ -38,6 +40,7 @@ export class EventCronService {
                             space: {
                                 select: {
                                     address: true,
+                                    timezone: true,
                                     city: true,
                                 },
                             },
@@ -47,7 +50,11 @@ export class EventCronService {
                         select: {
                             userId: true,
                             user: {
-                                select: { fullName: true, email: true, language: true },
+                                select: {
+                                    fullName: true,
+                                    email: true,
+                                    language: true,
+                                },
                             },
                         },
                     },
@@ -72,11 +79,11 @@ export class EventCronService {
 
         for (const event of events) {
             for (const attendee of event.attendees) {
-                const formattedDate = event.startTime?.toLocaleString('en-US', {
-                    dateStyle: 'medium',
-                    timeStyle: 'short',
-                });
-
+                const formattedDate = this.tzService.toLocalDisplay(
+                    event.startTime!,
+                    event?.booking?.space.timezone!,
+                    'HH:mm',
+                );
                 jobs.push({
                     userId: attendee.userId,
                     type: NotificationType.EVENT_REMINDER,
@@ -84,7 +91,10 @@ export class EventCronService {
                     message: `You have an upcoming event: ${event.title}. It starts on ${formattedDate}`,
                     meta: {
                         eventId: event.id,
-                        startTime: event.startTime,
+                        startTime: this.tzService.toLocalDisplay(
+                            event.startTime!,
+                            event?.booking?.space.timezone!,
+                        ),
                     },
                 });
 
@@ -99,7 +109,10 @@ export class EventCronService {
                         {
                             id: event.id,
                             title: event.title,
-                            startTime: event.startTime!.toLocaleString('en-GB'),
+                            startTime: this.tzService.toLocalDisplay(
+                                event.startTime!,
+                                event?.booking?.space.timezone!,
+                            ),
                             location: event.booking!.space.address ?? 'TBD',
                         },
                     )

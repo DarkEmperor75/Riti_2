@@ -131,6 +131,9 @@ export class AdminService {
         ]);
 
         this.logger.debug(`Vendor name: ${spaces[0]?.vendor?.user?.fullName}`);
+        this.logger.debug(
+            `Vendor has ${spaces[0].instructionsPdf.length} pdfs`,
+        );
         return {
             spaces: spaces.map((space) =>
                 plainToInstance(
@@ -139,7 +142,7 @@ export class AdminService {
                         ...space,
                         location: space.location,
                         images: space.images,
-                        instructionsPdf: space.instructionsPdf,
+                        pdfs: space.instructionsPdf,
                         vendorId: space.vendor.id,
                         vendorBusinessName: space.vendor.businessName,
                         vendorStatus: space.vendor.vendorStatus,
@@ -211,7 +214,7 @@ export class AdminService {
             isSuspended: dto.status === SpaceStatus.SUSPENDED,
             reviewedBy: { connect: { id: userId } },
             reviewedAt: new Date(),
-            ...(dto.status === SpaceStatus.REJECTED && dto.reason
+            ...(dto.status !== SpaceStatus.APPROVED && dto.reason
                 ? { adminReason: dto.reason }
                 : {}),
             ...(areAllSpacesSuspended &&

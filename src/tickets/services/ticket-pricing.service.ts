@@ -155,7 +155,7 @@ export class TicketPricingService {
                             ? TicketPaymentStatus.INITIATED
                             : TicketPaymentStatus.COMPLETED,
                         paymentExpiresAt: isPaid
-                            ? new Date(Date.now() + 5 * 60 * 1000)
+                            ? new Date(Date.now() + 2 * 60 * 1000)
                             : null,
                     },
                     select: {

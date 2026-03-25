@@ -1,6 +1,10 @@
 import { Prisma, SpaceStatus } from '@prisma/client';
 import { UpdateSpaceStatusDto } from '../dto';
-import { BadRequestException, ForbiddenException, Logger } from '@nestjs/common';
+import {
+    BadRequestException,
+    ForbiddenException,
+    Logger,
+} from '@nestjs/common';
 
 type SpaceToBeUpdated = Prisma.SpaceGetPayload<{
     select: {
@@ -65,13 +69,14 @@ export class AdminSpaceUpdateEntity {
                 );
             }
 
-            if(space.vendor.vendorStatus === 'SUSPENDED') {
+            if (space.vendor.vendorStatus === 'SUSPENDED') {
                 throw new BadRequestException('Vendor is suspended');
             }
         }
     }
 
     static areAllSpacesSuspended(spaces: SpacesToBeUpdated): boolean {
+        if (spaces.vendor.spaces.length < 3) return false;
         const suspendedSpaces = spaces.vendor.spaces.filter(
             (s) => s.status === SpaceStatus.SUSPENDED,
         );

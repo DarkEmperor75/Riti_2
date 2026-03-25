@@ -7,7 +7,7 @@ export interface UserForTokenDto {
     userType: UserType;
     status: UserStatus;
     city?: string | null;
-    country: string;
+    country?: string | null;
     hasHostProfile?: boolean;
     hasVendorProfile?: boolean;
     hasAttendeeProfile?: boolean;

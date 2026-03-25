@@ -367,7 +367,7 @@ export class SpaceBookingsController {
             timestamp: '2026-02-17T14:08:57.183Z',
             path: '/api/spaces/bookings/vendor?spaceId=cmlntv5ad00020w1cd485og40',
             message: {
-                message: 'Only Vendors have access to access this endpoint',
+                message: 'Only Vendors have to access this endpoint',
                 error: 'Forbidden',
                 statusCode: 403,
             },
@@ -504,12 +504,14 @@ export class SpaceBookingsController {
         @Param('bookingId') bookingId: string,
         @Body() dto: UpdateBookingStatusDto,
     ): Promise<BookingStatusResponseDto> {
-        this.logger.debug(`Updating status for booking: ${bookingId} with status: ${dto.status} and reason: ${dto.reason}`);
+        this.logger.debug(
+            `Updating status for booking: ${bookingId} with status: ${dto.status} and reason: ${dto.reason}`,
+        );
         return this.bookingsService.updateBookingStatus(
             bookingId,
             user.id,
             dto.status,
-            dto.reason
+            dto.reason,
         );
     }
 
@@ -817,7 +819,6 @@ export class SpaceBookingsController {
             },
         },
     })
-    @UseGuards(JwtAuthGuard)
     async cancelBooking(
         @Param('bookingId') bookingId: string,
         @GetUser() user: UserForTokenDto,

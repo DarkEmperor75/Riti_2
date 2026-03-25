@@ -110,4 +110,8 @@ export class SpacePublicDto {
     @ApiProperty({ example: 'Google Maps link to the location' })
     @Expose()
     location: string;
+
+    @ApiProperty({ example: 'Europe/Oslo' })
+    @Expose()
+    timezone: string;
 }

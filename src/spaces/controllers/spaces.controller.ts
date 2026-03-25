@@ -26,6 +26,7 @@ import {
     DiscoverSpacesQueryDto,
     BlockDaysDto,
     BlockDaysResultItemDto,
+    BlockedDaysResponseDto,
 } from '../dto';
 import {
     ApiBadRequestResponse,
@@ -2030,5 +2031,63 @@ export class SpacesController {
         @Body() dto: BlockDaysDto,
     ): Promise<BlockDaysResultItemDto[]> {
         return this.spacesService.blockDays(user.id, spaceId, dto);
+    }
+
+    @Get(':spaceId/blocked-days')
+    @ApiOperation({
+        summary: 'Get blocked days for a space',
+        description: `
+        Returns blocked date ranges for a given space.
+
+        **Ownership**: Only the vendor who owns the space can view blocked dates.
+
+        **Query params:**
+        - \`from\`: filter ranges starting from this date
+        - \`to\`: filter ranges ending at this date
+
+        If both are provided → returns overlapping ranges only.
+    `,
+    })
+    @ApiParam({
+        name: 'spaceId',
+        description: 'ID of the space',
+        example: 'cmmdtrfio001jqo01cm0trqbj',
+    })
+    @ApiOkResponse({
+        description: 'List of blocked date ranges',
+        type: [BlockedDaysResponseDto],
+        example: [
+            {
+                id: 'clx123',
+                startingDate: '2026-08-01',
+                endingDate: '2026-08-05',
+                reason: 'Maintenance',
+                createdAt: '2026-03-19T10:00:00.000Z',
+            },
+            {
+                id: 'clx124',
+                startingDate: '2026-09-10',
+                endingDate: '2026-09-15',
+                reason: 'Wedding',
+                createdAt: '2026-03-19T10:05:00.000Z',
+            },
+        ],
+    })
+    @ApiNotFoundResponse({
+        description: 'Space not found',
+    })
+    @ApiForbiddenResponse({
+        description: 'You do not own this space',
+    })
+    @ApiUnauthorizedResponse({
+        description: 'Missing or invalid JWT token',
+    })
+    async getBlockedDays(
+        @GetUser() user: UserForTokenDto,
+        @Param('spaceId') spaceId: string,
+        @Query('from') from?: string,
+        @Query('to') to?: string,
+    ): Promise<BlockedDaysResponseDto[]> {
+        return this.spacesService.getBlockedDays(user.id, spaceId, from, to);
     }
 }

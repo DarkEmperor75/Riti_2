@@ -7,6 +7,7 @@ import {
     FinancialActor,
     FinancialType,
     PaymentStatus,
+    Prisma,
     TicketPaymentStatus,
     TicketStatus,
 } from '@prisma/client';
@@ -167,20 +168,17 @@ export class PaymentsCronService {
 
         for (const ticket of expiredTickets) {
             await this.db.$transaction(async (tx) => {
-                await tx.ticket.update({
-                    where: { id: ticket.id },
+                const updatedTicket = await tx.ticket.updateMany({
+                    where: { id: ticket.id, status: TicketStatus.IN_PROGRESS },
                     data: {
                         status: TicketStatus.EXPIRED,
                         paymentStatus: TicketPaymentStatus.FAILED,
                     },
                 });
 
-                await tx.event.update({
-                    where: { id: ticket.eventId },
-                    data: {
-                        ticketsSold: { decrement: 1 },
-                    },
-                });
+                if (updatedTicket.count > 0) {
+                    await this.decrement(ticket.eventId, tx);
+                }
             });
         }
     }
@@ -367,5 +365,23 @@ export class PaymentsCronService {
 
     async triggerReleaseVendorPayouts() {
         return this.releaseVendorPayouts();
+    }
+
+    async decrement(eventId: string, tx?: Prisma.TransactionClient) {
+        const client = tx || this.db;
+
+        const result = await client.event.updateMany({
+            where: {
+                id: eventId,
+                ticketsSold: { gt: 0 },
+            },
+            data: {
+                ticketsSold: { decrement: 1 },
+            },
+        });
+
+        if (result.count === 0) {
+            this.logger.error(`Failed to decrease the value of tickets sold`);
+        }
     }
 }

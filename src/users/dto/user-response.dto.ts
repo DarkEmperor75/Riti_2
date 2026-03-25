@@ -31,7 +31,7 @@ export class UserProfileResponseDto {
         example: AllowedCountries.NO,
     })
     @Expose()
-    country: AllowedCountries;
+    country?: AllowedCountries;
 
     @ApiProperty({
         enum: Language,

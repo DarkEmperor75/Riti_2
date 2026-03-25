@@ -10,6 +10,7 @@ import {
 import {
     BlockDaysDto,
     BlockDaysResultItemDto,
+    BlockedDaysResponseDto,
     CreateSpaceDto,
     DiscoverSpacesQueryDto,
     FindSpacesQueryDto,
@@ -23,7 +24,7 @@ import {
     UpdateSpaceDto,
 } from '../dto';
 import { DatabaseService } from 'src/database/database.service';
-import { StorageService } from 'src/common/services';
+import { StorageService, TimezoneService } from 'src/common/services';
 import { plainToInstance } from 'class-transformer';
 import { SpaceEntity, VendorEntity } from '../entities';
 import {
@@ -35,6 +36,7 @@ import {
 } from '@prisma/client';
 import dayjs from 'dayjs';
 import { NotificationsService } from 'src/notifications/services';
+import { DEFAULT_TIMEZONE } from 'src/common/constants/timezone.constants';
 
 @Injectable()
 export class SpacesService {
@@ -43,6 +45,7 @@ export class SpacesService {
         private db: DatabaseService,
         private storageService: StorageService,
         private notificationsService: NotificationsService,
+        private tzService: TimezoneService,
     ) {}
 
     async createSpace(
@@ -71,6 +74,7 @@ export class SpacesService {
                                 select: {
                                     fullName: true,
                                     city: true,
+                                    country: true,
                                 },
                             },
                             spaces: {
@@ -87,6 +91,7 @@ export class SpacesService {
                     VendorEntity.validateCanCreateSpace(
                         vendor.vendorStatus,
                         vendor.user.city,
+                        vendor.user.country,
                     );
 
                     const space = await tx.space.create({
@@ -94,6 +99,7 @@ export class SpacesService {
                             dto,
                             vendor.user.city!,
                             vendor.id,
+                            vendor.user.country!,
                         ),
                     });
 
@@ -153,8 +159,8 @@ export class SpacesService {
                         meta: {
                             spaceId: space.id,
                             vendorId: vendor.id,
-                        }
-                    })
+                        },
+                    });
 
                     return {
                         success: true,
@@ -183,7 +189,10 @@ export class SpacesService {
                 );
             }
 
-            throw new InternalServerErrorException('Space creation failed', error.message);
+            throw new InternalServerErrorException(
+                'Space creation failed',
+                error.message,
+            );
         }
     }
 
@@ -292,7 +301,7 @@ export class SpacesService {
                 ...space,
                 imageUrls: space.images,
                 instructionsPdfsUrls: space.instructionsPdf,
-                location: space.location
+                location: space.location,
             },
             {
                 excludeExtraneousValues: true,
@@ -729,7 +738,13 @@ export class SpacesService {
                                     targetDate.setHours(23, 59, 59, 999),
                                 ),
                             },
-                            endTime: { gte: new Date(date) },
+                            endTime: {
+                                gte: this.tzService.parseLocalToUTC(
+                                    date,
+                                    '00:00',
+                                    DEFAULT_TIMEZONE,
+                                ),
+                            },
                         },
                     ],
                 },
@@ -801,6 +816,7 @@ export class SpacesService {
                 location: true,
                 instructionsPdf: true,
                 rules: true,
+                timezone: true,
                 vendor: { select: { businessName: true, vendorStatus: true } },
                 bookings: {
                     where: {
@@ -829,6 +845,7 @@ export class SpacesService {
                 },
                 isAvailable: space.bookings.length === 0,
                 location: space.location,
+                timezone: space.timezone ?? DEFAULT_TIMEZONE,
             },
             {
                 excludeExtraneousValues: true,
@@ -873,7 +890,7 @@ export class SpacesService {
                     };
                 }
 
-                if (end.isBefore(start) || end.isSame(start)) {
+                if (end.isBefore(start)) {
                     return {
                         success: false,
                         message: `End date must be after start date: ${startLabel} - ${endLabel}`,
@@ -924,14 +941,23 @@ export class SpacesService {
                         startTime: { lte: end.toDate() },
                         endTime: { gte: start.toDate() },
                     },
+                    include: {
+                        space: {
+                            select: {
+                                timezone: true,
+                            },
+                        },
+                    },
                 });
 
                 if (conflictingBooking) {
-                    const bkFrom = dayjs(conflictingBooking.startTime).format(
-                        'YYYY-MM-DD',
+                    const bkFrom = this.tzService.toLocalDate(
+                        conflictingBooking.startTime,
+                        conflictingBooking.space.timezone!,
                     );
-                    const bkTo = dayjs(conflictingBooking.endTime).format(
-                        'YYYY-MM-DD',
+                    const bkTo = this.tzService.toLocalDate(
+                        conflictingBooking.endTime,
+                        conflictingBooking.space.timezone!,
                     );
                     return {
                         success: false,
@@ -964,6 +990,67 @@ export class SpacesService {
         );
 
         return results;
+    }
+
+    async getBlockedDays(
+        userId: string,
+        spaceId: string,
+        from?: string,
+        to?: string,
+    ): Promise<BlockedDaysResponseDto[]> {
+        const space = await this.db.space.findUnique({
+            where: { id: spaceId },
+            select: {
+                id: true,
+                vendor: { select: { userId: true } },
+            },
+        });
+
+        if (!space) throw new NotFoundException('Space not found');
+
+        if (space.vendor.userId !== userId) {
+            throw new ForbiddenException('You do not own this space');
+        }
+
+        let where: any = { spaceId };
+
+        if (from || to) {
+            const fromDate = from
+                ? dayjs(from).startOf('day').toDate()
+                : undefined;
+
+            const toDate = to ? dayjs(to).endOf('day').toDate() : undefined;
+
+            where = {
+                spaceId,
+                ...(fromDate &&
+                    toDate && {
+                        startingDate: { lte: toDate },
+                        endingDate: { gte: fromDate },
+                    }),
+                ...(fromDate &&
+                    !toDate && {
+                        endingDate: { gte: fromDate },
+                    }),
+                ...(!fromDate &&
+                    toDate && {
+                        startingDate: { lte: toDate },
+                    }),
+            };
+        }
+
+        const blockedDays = await this.db.daysBlocked.findMany({
+            where,
+            orderBy: { startingDate: 'asc' },
+        });
+
+        return blockedDays.map((item) => ({
+            id: item.id,
+            startingDate: dayjs(item.startingDate).format('YYYY-MM-DD'),
+            endingDate: dayjs(item.endingDate).format('YYYY-MM-DD'),
+            reason: item.reason ?? undefined,
+            createdAt: item.createdAt,
+        }));
     }
 
     async deleteSpace(

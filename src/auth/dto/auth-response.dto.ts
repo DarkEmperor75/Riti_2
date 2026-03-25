@@ -1,6 +1,11 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { Expose } from 'class-transformer';
-import { AllowedCountries, Language, UserStatus, UserType } from '@prisma/client';
+import {
+    AllowedCountries,
+    Language,
+    UserStatus,
+    UserType,
+} from '@prisma/client';
 
 export class UserResponseDto {
     @ApiProperty({ example: '123e4567-e89b-12d3-a456-426655440000' })
@@ -37,7 +42,7 @@ export class UserResponseDto {
 
     @ApiProperty({ enum: AllowedCountries })
     @Expose()
-    country: AllowedCountries;
+    country?: AllowedCountries | null;
 }
 
 export class AuthResponseDto {

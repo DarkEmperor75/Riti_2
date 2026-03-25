@@ -17,20 +17,22 @@ import {
 import {
     EventStatus,
     EventType,
+    FinancialActor,
+    FinancialType,
     HostStatus,
     NotificationType,
     Prisma,
-    Ticket,
     TicketPaymentStatus,
     TicketStatus,
-    TicketType,
 } from '@prisma/client';
 import { TicketEntity } from '../entities';
 import { Paginated, PaginatedQuery } from 'src/common/types';
 import { plainToInstance } from 'class-transformer';
 import { TicketPricingService } from './ticket-pricing.service';
+import { TicketsInventoryService } from './tickets-inventory.service';
 import { NotificationsService } from 'src/notifications/services';
 import { PaymentsService } from 'src/payments/services';
+import { FinancialsService } from 'src/financials/services';
 
 @Injectable({ scope: Scope.REQUEST })
 export class TicketsService {
@@ -40,12 +42,15 @@ export class TicketsService {
         private notificationsService: NotificationsService,
         private ticketPricingService: TicketPricingService,
         private paymentsService: PaymentsService,
+        private ticketsInventoryService: TicketsInventoryService,
+        private financialsService: FinancialsService,
     ) {}
 
     async purchaseTicket(
         userId: string,
         dto: PurchaseTicketDto,
     ): Promise<FreeTicketRes | PaidTicketRes> {
+        this.logger.debug(`Getting attendee for User with UserID: ${userId}`);
         const attendee = await this.db.attendee.findUnique({
             where: {
                 userId,
@@ -90,6 +95,25 @@ export class TicketsService {
             );
         }
 
+        const existingTicket = await this.db.ticket.findFirst({
+            where: {
+                eventId: event.id,
+                attendeeId: attendee.id,
+                status: {
+                    in: [TicketStatus.IN_PROGRESS, TicketStatus.PURCHASED],
+                },
+            },
+            select: {
+                status: true,
+            },
+        });
+
+        if (existingTicket) {
+            throw new BadRequestException(
+                `You already have a ticket (${existingTicket.status}) for this event`,
+            );
+        }
+
         if (event.eventType === EventType.FREE) {
             const ticket =
                 await this.ticketPricingService.createTicketReservation(
@@ -97,6 +121,7 @@ export class TicketsService {
                     event,
                     false,
                 );
+
             await this.queueTicketPurchaseNotifications(
                 userId,
                 event.host.userId,
@@ -142,7 +167,7 @@ export class TicketsService {
             checkoutUrl: checkout.url ? checkout.url : '',
             status: ticket.status,
             message:
-                'Your ticket is being processed, make sure to pay the amount within 5 minutes.',
+                'Your ticket is being processed, make sure to pay the amount within 2 minutes.',
         };
     }
 
@@ -168,6 +193,11 @@ export class TicketsService {
                         eventType: true,
                     },
                 },
+                attendee: {
+                    select: {
+                        userId: true,
+                    },
+                },
             },
         });
 
@@ -177,29 +207,50 @@ export class TicketsService {
             throw new BadRequestException('Ticket already cancelled');
 
         if (ticket.status !== TicketStatus.PURCHASED)
-            throw new BadRequestException(`Ticket not refundable because it is ${ticket.status}`);
+            throw new BadRequestException(
+                `Ticket not refundable because it is ${ticket.status}`,
+            );
 
-        if(ticket.event.eventType === EventType.PAID)
-            await this.paymentsService.refundTicket(ticket);
+        if (ticket.isRefunded)
+            throw new BadRequestException(`Your ticket is already refunded!`);
+
+        let isRefunded: boolean = true;
+
+        if (ticket.event.eventType === EventType.PAID) {
+            try {
+                await this.paymentsService.refundTicket(ticket);
+            } catch (error) {
+                isRefunded = false;
+                throw new BadGatewayException(error);
+            }
+        }
+
+        await this.financialsService.recordLedgerEntry({
+            reference: `REF-${ticket.id}`,
+            description: `Ticket refund`,
+            type: FinancialType.REFUND,
+            amount: -Number(ticket.pricePaid),
+            actorType: FinancialActor.ATTENDEE,
+            actorId: ticket.attendee.userId,
+            ticketId: ticket.id,
+        });
 
         await this.db.$transaction(async (tx) => {
-            await tx.ticket.update({
-                where: { id: ticket.id },
+            const updatedTicket = await tx.ticket.updateMany({
+                where: { id: ticket.id, status: TicketStatus.PURCHASED },
                 data: {
                     status: TicketStatus.CANCELLED,
-                    isRefunded: true,
+                    isRefunded,
                     cancelledAt: new Date(),
                     refundedAt: new Date(),
                     paymentStatus: TicketPaymentStatus.REFUNDED,
                 },
             });
 
-            await tx.event.update({
-                where: { id: ticket.eventId },
-                data: {
-                    ticketsSold: { decrement: 1 },
-                },
-            });
+            if (updatedTicket.count === 0)
+                throw new BadRequestException('Ticket already processed');
+
+            await this.ticketsInventoryService.decrement(ticket.eventId, tx);
         });
 
         await this.notificationsService.create(

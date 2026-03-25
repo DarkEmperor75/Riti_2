@@ -1,8 +1,4 @@
-import {
-    BadRequestException,
-    ForbiddenException,
-    Logger,
-} from '@nestjs/common';
+import { BadRequestException, ForbiddenException } from '@nestjs/common';
 import { BookingStatus, Prisma } from '@prisma/client';
 import dayjs from 'dayjs';
 
@@ -15,14 +11,6 @@ type CreateBookingSpacePayloadType = Prisma.SpaceGetPayload<{
 }>;
 
 export class BookingEntity {
-    static validateDateTime(dateTime: Date): void {
-        const logger = new Logger(BookingEntity.name);
-        if (dateTime < new Date())
-            throw new BadRequestException('Cannot book in the past');
-        logger.debug(`DateTime: ${dateTime}`);
-        if (!dayjs(dateTime).isValid())
-            throw new BadRequestException('Invalid start date');
-    }
     static validateBookingToBeCreated(
         space: CreateBookingSpacePayloadType,
         startDateTime: Date,

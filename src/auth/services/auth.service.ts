@@ -247,7 +247,7 @@ export class AuthService {
             throw new BadRequestException('Password is required');
         if (!user.hashedPassword)
             throw new BadRequestException(
-                'User has no password, set one first',
+                'Looks like you signed up with Google. To use password login, please set a password using ‘Forgot Password',
             );
 
         const isPasswordValid = await bcrypt.compare(
@@ -677,7 +677,9 @@ export class AuthService {
                 fullName: user.fullName,
                 userType: user.userType,
                 status: user.status,
-                country: user.country,
+                ...(user.country !== undefined
+                    ? { country: user.country }
+                    : {}),
                 ...(user.city !== undefined ? { city: user.city } : {}),
                 ...(user.profilePicture !== undefined
                     ? { profilePicture: user.profilePicture }

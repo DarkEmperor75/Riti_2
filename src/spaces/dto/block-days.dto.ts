@@ -39,3 +39,11 @@ export class BlockDaysResultItemDto {
     @Expose() success: boolean;
     @Expose() message: string;
 }
+
+export class BlockedDaysResponseDto {
+    id: string;
+    startingDate: string;
+    endingDate: string;
+    reason?: string;
+    createdAt: Date;
+}

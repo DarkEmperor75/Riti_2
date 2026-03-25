@@ -61,6 +61,10 @@ export class EventPreviewResponseDto {
 }
 
 export class HostEventResponseDto extends EventPreviewResponseDto {
+    @ApiProperty({ example: 'cwqw8127eg1287t12921' })
+    @Expose()
+    bookingId: string;
+
     @ApiProperty({ example: 'My event description' })
     @Expose()
     description: string;

@@ -1,4 +1,5 @@
 import {
+    BadGatewayException,
     BadRequestException,
     ConflictException,
     ForbiddenException,
@@ -33,6 +34,7 @@ import { NotificationsService } from 'src/notifications/services';
 import { PaymentsService } from 'src/payments/services';
 import { EmailsService } from 'src/emails/services';
 import { FinancialsService } from 'src/financials/services';
+import { TimezoneService } from 'src/common/services';
 
 @Injectable()
 export class SpaceBookingsService {
@@ -44,6 +46,7 @@ export class SpaceBookingsService {
         private paymentService: PaymentsService,
         private emailsService: EmailsService,
         private financialsService: FinancialsService,
+        private tzService: TimezoneService,
     ) {}
 
     async createBookingRequest(
@@ -52,35 +55,47 @@ export class SpaceBookingsService {
     ): Promise<{ id: string; status: string }> {
         const { spaceId, startDate, startTime, durationHours, note } = dto;
 
-        const startDateTime = new Date(`${startDate}T${startTime}`);
-        BookingEntity.validateDateTime(startDateTime);
+        const space = await this.db.space.findUnique({
+            where: { id: spaceId },
+            include: { vendor: true, bookings: true, daysBlocked: true },
+        });
 
-        const endDateTime = new Date(
-            startDateTime.getTime() + durationHours * 60 * 60 * 1000,
+        if (!space) throw new NotFoundException('Space not found');
+        if (!space.timezone)
+            throw new BadGatewayException(
+                'Space lacks timezone for booking to be successfull',
+            );
+
+        const startDateTimeUTC = this.tzService.parseLocalToUTC(
+            startDate,
+            startTime,
+            space.timezone,
+        );
+
+        const endDateTimeUTC = this.tzService.addHours(
+            startDateTimeUTC,
+            durationHours,
+            space.timezone,
+        );
+
+        this.tzService.assertFuture(startDateTimeUTC, space.timezone);
+
+        BookingEntity.validateBookingToBeCreated(
+            space,
+            startDateTimeUTC,
+            durationHours,
+            renterId,
         );
 
         return this.db.$transaction(async (tx) => {
-            const space = await tx.space.findUnique({
-                where: { id: spaceId },
-                include: { vendor: true, bookings: true, daysBlocked: true },
-            });
-
-            if (!space) throw new NotFoundException('Space not found');
-            BookingEntity.validateBookingToBeCreated(
-                space,
-                startDateTime,
-                durationHours,
-                renterId,
-            );
-
             const conflict = await tx.booking.findFirst({
                 where: {
                     spaceId,
                     status: { in: ['APPROVED', 'PAID'] },
                     OR: [
                         {
-                            startTime: { lt: endDateTime },
-                            endTime: { gt: startDateTime },
+                            startTime: { lt: endDateTimeUTC },
+                            endTime: { gt: startDateTimeUTC },
                         },
                     ],
                 },
@@ -92,8 +107,8 @@ export class SpaceBookingsService {
                 data: {
                     spaceId,
                     renterId,
-                    startTime: startDateTime,
-                    endTime: endDateTime,
+                    startTime: startDateTimeUTC,
+                    endTime: endDateTimeUTC,
                     totalPrice: new Prisma.Decimal(
                         space.pricePerHour.toNumber() * durationHours,
                     ),
@@ -259,6 +274,30 @@ export class SpaceBookingsService {
                     );
                 }
 
+                const blockedDays = await tx.daysBlocked.findFirst({
+                    where: {
+                        spaceId: booking.spaceId,
+                        AND: [
+                            {
+                                startingDate: { lte: booking.endTime },
+                            },
+                            {
+                                endingDate: { gte: booking.startTime },
+                            },
+                        ],
+                    },
+                    select: {
+                        startingDate: true,
+                        endingDate: true,
+                    },
+                });
+
+                if (blockedDays) {
+                    throw new ConflictException(
+                        `Cannot approve - dates fall within blocked period (${blockedDays?.startingDate.toISOString()} - ${blockedDays.endingDate.toISOString()})`,
+                    );
+                }
+
                 if (!booking.space.vendor.stripeChargesEnabled)
                     throw new BadRequestException(
                         'Stripe charges are not enabled for this vendor',
@@ -288,9 +327,11 @@ export class SpaceBookingsService {
                 where: { id: bookingId },
                 data: {
                     status: newStatus,
-                    ...(newStatus === 'REJECTED' && reason !== undefined ? {
-                        bookingRejectionReason: reason,
-                    }: {}),
+                    ...(newStatus === 'REJECTED' && reason !== undefined
+                        ? {
+                              bookingRejectionReason: reason,
+                          }
+                        : {}),
                     updatedAt: new Date(),
                 },
                 select: {
@@ -308,6 +349,7 @@ export class SpaceBookingsService {
                         select: {
                             name: true,
                             id: true,
+                            timezone: true,
                             vendor: {
                                 select: {
                                     userId: true,
@@ -386,9 +428,18 @@ export class SpaceBookingsService {
                     {
                         id: updatedBooking.space.id,
                         spaceName: updatedBooking.space.name,
-                        date: updatedBooking.updatedAt.toDateString(),
-                        startTime: updatedBooking.startTime.toDateString(),
-                        endTime: updatedBooking.endTime.toDateString(),
+                        date: this.tzService.toLocalDate(
+                            updatedBooking.startTime,
+                            updatedBooking.space.timezone!,
+                        ),
+                        startTime: this.tzService.toLocalTime(
+                            updatedBooking.startTime,
+                            updatedBooking.space.timezone!,
+                        ),
+                        endTime: this.tzService.toLocalTime(
+                            updatedBooking.endTime,
+                            updatedBooking.space.timezone!,
+                        ),
                         amount: updatedBooking.totalPrice.toString(),
                     },
                 )
@@ -408,15 +459,18 @@ export class SpaceBookingsService {
                         id: updatedBooking.id,
                         spaceName: updatedBooking.space.name,
                         customerName: updatedBooking.renter.fullName,
-                        date: booking.startTime.toLocaleDateString('en-GB'),
-                        startTime: booking.startTime.toLocaleTimeString(
-                            'en-GB',
-                            { hour: '2-digit', minute: '2-digit' },
+                        date: this.tzService.toLocalDate(
+                            booking.startTime,
+                            updatedBooking.space.timezone!,
                         ),
-                        endTime: booking.endTime.toLocaleTimeString('en-GB', {
-                            hour: '2-digit',
-                            minute: '2-digit',
-                        }),
+                        startTime: this.tzService.toLocalTime(
+                            booking.startTime,
+                            updatedBooking.space.timezone!,
+                        ),
+                        endTime: this.tzService.toLocalTime(
+                            booking.endTime,
+                            updatedBooking.space.timezone!,
+                        ),
                         amount: `${updatedBooking.totalPrice} NOK`,
                     },
                 )
@@ -525,6 +579,7 @@ export class SpaceBookingsService {
                 space: {
                     select: {
                         name: true,
+                        timezone: true,
                         vendor: {
                             select: {
                                 userId: true,
@@ -632,7 +687,10 @@ export class SpaceBookingsService {
                 {
                     id: booking.id,
                     spaceName: booking.space.name,
-                    date: booking.startTime.toLocaleDateString('en-GB'),
+                    date: this.tzService.toLocalDate(
+                        booking.startTime,
+                        booking.space.timezone!,
+                    ),
                 },
             )
             .catch((err) =>
@@ -651,7 +709,10 @@ export class SpaceBookingsService {
                     id: booking.id,
                     spaceName: booking.space.name,
                     customerName: booking.renter.fullName,
-                    date: booking.startTime.toLocaleDateString('en-GB'),
+                    date: this.tzService.toLocalDate(
+                        booking.startTime,
+                        booking.space.timezone!,
+                    ),
                 },
             )
             .catch((err) =>

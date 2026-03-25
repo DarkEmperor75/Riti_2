@@ -1,6 +1,6 @@
 import { Module } from '@nestjs/common';
 import { UsersController } from './controllers';
-import { UsersService } from './services';
+import { UsersCronService, UsersService } from './services';
 import {
     AdminProfileGuard,
     AttendeeProfileGuard,
@@ -16,13 +16,14 @@ import {
         HostProfileGuard,
         VendorProfileGuard,
         AdminProfileGuard,
+        UsersCronService,
     ],
     exports: [
         UsersService,
         AttendeeProfileGuard,
         HostProfileGuard,
         VendorProfileGuard,
-        AdminProfileGuard
+        AdminProfileGuard,
     ],
 })
 export class UsersModule {}

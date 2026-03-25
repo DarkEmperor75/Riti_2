@@ -633,7 +633,8 @@ export class UsersController {
             if (file) {
                 dto.businessPfp = file;
             }
-            if(user.hasVendorProfile) throw new BadRequestException('Vendor profile already exists');
+            if (user.hasVendorProfile)
+                throw new BadRequestException('Vendor profile already exists');
             return this.usersService.createVendorProfile(user.id, dto);
         } catch (error) {
             this.logger.error('Error creating vendor profile', error);
@@ -821,7 +822,11 @@ export class UsersController {
     ): Promise<{ succes: boolean; message: string }> {
         try {
             this.logger.debug('Updating status for user: ', user.id);
-            return this.usersService.updateType(user.id, user.userType, type);
+            return this.usersService.updateUserType(
+                user.id,
+                user.userType,
+                type,
+            );
         } catch (error) {
             this.logger.error('Error updating status', error);
             if (error instanceof HttpException) throw error;

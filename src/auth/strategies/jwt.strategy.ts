@@ -2,14 +2,16 @@ import { ConfigService } from '@nestjs/config';
 import { PassportStrategy } from '@nestjs/passport';
 import { ExtractJwt, Strategy } from 'passport-jwt';
 import { AuthService } from '../services';
-import { Injectable, InternalServerErrorException, Logger, UnauthorizedException } from '@nestjs/common';
+import {
+    Injectable,
+    InternalServerErrorException,
+    Logger,
+} from '@nestjs/common';
 import { JwtPayload, UserForTokenDto } from '../interfaces';
-import { UserStatus } from '@prisma/client';
 
 @Injectable()
 export class JwtStrategy extends PassportStrategy(Strategy) {
-
-    private readonly logger = new Logger(JwtStrategy.name)
+    private readonly logger = new Logger(JwtStrategy.name);
     constructor(
         private readonly config: ConfigService,
         private readonly authService: AuthService,
@@ -29,9 +31,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     }
 
     async validate(payload: JwtPayload): Promise<UserForTokenDto> {
-        const user = await this.authService.findUserById(
-            payload.sub,
-        );
+        const user = await this.authService.findUserById(payload.sub);
 
         if (!user) {
             this.logger.error('User not found');
@@ -49,11 +49,10 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
             userType: user.userType,
             status: user.status,
             ...(user.city !== undefined ? { city: user.city } : {}),
-            country: user.country,
+            ...(user.country !== undefined ? { country: user.country } : {}),
             hasAttendeeProfile,
             hasHostProfile,
-            hasVendorProfile
-        }
-
+            hasVendorProfile,
+        };
     }
 }

@@ -124,12 +124,6 @@ a {
 ${body}
 </div>
 
-<div class="footer">
-  <a href="https://riti-mvp-frontend.vercel.app" class="footer-btn">
-    Riti
-  </a>
-</div>
-
 </div>
 </div>
 

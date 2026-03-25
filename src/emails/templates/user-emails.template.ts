@@ -107,7 +107,7 @@ export const booking_confirmation_en = {
       <p><span class="detail-label">Space</span><br><strong>{{ spaceName }}</strong></p>
       <p><span class="detail-label">Date</span><br><strong>{{ date }}</strong></p>
       <p><span class="detail-label">Time</span><br><strong>{{ startTime }} - {{ endTime }}</strong></p>
-      <p><span class="detail-label">Amount Paid</span><br><strong>{{ amount }}</strong></p>
+      <p><span class="detail-label">Amount to pay</span><br><strong>{{ amount }}</strong></p>
       <p><span class="detail-label">Booking ID</span><br><strong>{{ bookingId }}</strong></p>
     </div>
     <div style="margin-top:24px;padding:16px 18px;background:#F2EFF3;border-radius:8px;text-align:center;">
@@ -134,7 +134,7 @@ export const booking_confirmation_no = {
       <p><span class="detail-label">Lokale</span><br><strong>{{ spaceName }}</strong></p>
       <p><span class="detail-label">Dato</span><br><strong>{{ date }}</strong></p>
       <p><span class="detail-label">Tid</span><br><strong>{{ startTime }} - {{ endTime }}</strong></p>
-      <p><span class="detail-label">Betalt beløp</span><br><strong>{{ amount }}</strong></p>
+      <p><span class="detail-label">Beløp som skal betales</span><br><strong>{{ amount }}</strong></p>
       <p><span class="detail-label">Booking-ID</span><br><strong>{{ bookingId }}</strong></p>
     </div>
     <div style="margin-top:24px;padding:16px 18px;background:#F2EFF3;border-radius:8px;text-align:center;">

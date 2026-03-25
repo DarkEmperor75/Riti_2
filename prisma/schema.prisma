@@ -2,6 +2,11 @@ generator client {
   provider = "prisma-client-js"
 }
 
+generator dbml {
+  provider = "prisma-dbml-generator"
+  output   = "./dbml"
+}
+
 datasource db {
   provider  = "postgresql"
   url       = env("DATABASE_URL")
@@ -338,11 +343,11 @@ model User {
   hashedPassword String?
   fullName       String
   profilePicture String?
-  country        AllowedCountries @default(NO)
+  country        AllowedCountries?
   language       Language         @default(EN)
   googleId       String?          @unique
   termsAccepted  Boolean          @default(false)
-  initialIntent  InitialIntent    @default(ATTEND)
+  initialIntent  InitialIntent? 
   isAdmin        Boolean          @default(false)
   userType       UserType         @default(ATTENDEE)
   status         UserStatus       @default(ACTIVE)
@@ -388,7 +393,7 @@ model Attendee {
   user        User    @relation(fields: [userId], references: [id], onDelete: Cascade)
   bio         String?
   preferences Json?
-  phoneNumber String? @unique
+  phoneNumber String?
 
   isStudent Boolean @default(false)
 
@@ -413,7 +418,7 @@ model Host {
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   bio              String
-  phoneNumber      String  @unique
+  phoneNumber      String 
   website          String?
   instagramUrl     String?
   tikTokUrl        String?
@@ -535,8 +540,8 @@ model Space {
   name            String
   description     String
   capacity        Int
-  address         String           @unique
-  location        String?           @unique
+  address         String           
+  location        String?       
 
   spaceType       SpaceType        @default(OTHER)
   city            String
@@ -556,6 +561,7 @@ model Space {
   reviewedBy   User?       @relation(fields: [reviewedById], references: [id])
 
   isSuspended Boolean @default(false)
+  timezone String?
 
   images   SpaceImage[]
   bookings Booking[]
@@ -687,7 +693,7 @@ model Event {
 model Ticket {
   id         String   @id @default(cuid())
   attendeeId String
-  attendee   Attendee @relation(fields: [attendeeId], references: [id])
+  attendee   Attendee @relation(fields: [attendeeId], references: [id], onDelete: Cascade)
 
   eventId String
   event   Event  @relation(fields: [eventId], references: [id])
@@ -715,6 +721,7 @@ model Ticket {
   updateAt  DateTime @updatedAt
 
   @@index([eventId])
+  @@index([eventId, attendeeId])
   @@index([status])
   @@index([paymentAttemptCount, paymentStatus, paymentExpiresAt])
   @@map("tickets")

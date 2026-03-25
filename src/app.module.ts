@@ -25,6 +25,7 @@ import * as dotenv from 'dotenv';
 import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 import { APP_GUARD } from '@nestjs/core';
 import { ThrottlerStorageRedisService } from '@nest-lab/throttler-storage-redis';
+import { UsersCronService } from './users/services';
 dotenv.config();
 
 @Module({
@@ -75,6 +76,7 @@ dotenv.config();
         SpaceBookingCronService,
         EventCronService,
         PaymentsCronService,
+        UsersCronService,
         {
             provide: APP_GUARD,
             useClass: ThrottlerGuard,

@@ -66,7 +66,7 @@ export class AdminSpaceListItemDto {
         example: 'https://storage.../img1.jpg',
     })
     @Expose()
-    instructionalPdfs: Record<string, any>;
+    pdfs: Record<string, any>;
 
     @ApiPropertyOptional({ example: 'Needs more photos' })
     @Expose()

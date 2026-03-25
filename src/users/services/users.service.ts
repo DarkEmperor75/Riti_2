@@ -22,12 +22,12 @@ import {
 import {
     Attendee,
     Host,
+    InitialIntent,
     Prisma,
     User,
     UserStatus,
     UserType,
     Vendor,
-    VendorStatus,
 } from '@prisma/client';
 import { StorageService } from 'src/common/services';
 import { PfpUploadResponse, PfpDeleteResponse } from '../interfaces';
@@ -100,7 +100,7 @@ export class UsersService {
         }
     }
 
-    async updateType(
+    async updateUserType(
         userId: string,
         currentType: UserType,
         type: UserType,
@@ -131,9 +131,36 @@ export class UsersService {
             };
 
         try {
-            await this.prisma.user.update({
-                where: { id: userId },
-                data: { userType: type },
+            await this.prisma.$transaction(async (tx) => {
+                const currentUser = await tx.user.findUnique({
+                    where: { id: userId },
+                    select: {
+                        initialIntent: true,
+                    },
+                });
+
+                if (!currentUser) throw new NotFoundException('User not found');
+
+                if (!currentUser.initialIntent)
+                    await this.createInitialIntent(userId, tx, type);
+
+                if (type === UserType.VENDOR) {
+                    if (
+                        currentUser.initialIntent === InitialIntent.ATTEND ||
+                        currentUser.initialIntent === InitialIntent.HOST
+                    ) {
+                        throw new BadRequestException(
+                            'You cannot opt to be a vendor',
+                        );
+                    }
+                }
+
+                await tx.user.update({
+                    where: { id: userId },
+                    data: {
+                        userType: type,
+                    },
+                });
             });
         } catch (error) {
             this.logger.error('Error updating status', error);
@@ -453,11 +480,25 @@ export class UsersService {
             select: {
                 fullName: true,
                 email: true,
+                userType: true,
+                initialIntent: true,
             },
         });
 
         if (!existingVendor)
             throw new BadRequestException('User does not exist');
+
+        if (
+            existingVendor.initialIntent === InitialIntent.ATTEND ||
+            existingVendor.initialIntent === InitialIntent.HOST ||
+            existingVendor.userType === UserType.HOST ||
+            existingVendor.userType === UserType.ATTENDEE ||
+            existingVendor.userType === UserType.ADMIN
+        ) {
+            throw new BadRequestException(
+                'Hosts and Attendees cannot attempt to switch to vendor',
+            );
+        }
 
         let businessPfp: string | undefined;
         if (dto.businessPfp) {
@@ -559,6 +600,9 @@ export class UsersService {
                     update: {
                         ...(dto.businessName !== undefined && {
                             businessName: dto.businessName,
+                        }),
+                        ...(dto.description !== undefined && {
+                            description: dto.description,
                         }),
                         ...(dto.contactEmail !== undefined && {
                             contactEmail: dto.contactEmail,
@@ -697,7 +741,7 @@ export class UsersService {
                 fullName: user.fullName,
 
                 profilePicture: user.profilePicture ?? undefined,
-                country: user.country,
+                country: user.country ?? undefined,
                 language: user.language,
                 city: user.city ?? undefined,
 
@@ -810,6 +854,30 @@ export class UsersService {
             if (error instanceof HttpException) throw error;
             throw new InternalServerErrorException(
                 'Error building vendor user response',
+            );
+        }
+    }
+
+    private async createInitialIntent(
+        userId: string,
+        tx: Prisma.TransactionClient,
+        type: UserType,
+    ): Promise<void> {
+        const intentMap = {
+            [UserType.ATTENDEE]: InitialIntent.ATTEND,
+            [UserType.HOST]: InitialIntent.HOST,
+            [UserType.VENDOR]: InitialIntent.LIST_SPACE,
+        };
+
+        try {
+            await tx.user.update({
+                where: { id: userId },
+                data: { initialIntent: intentMap[type] },
+            });
+        } catch (error) {
+            this.logger.error(
+                `Failed to update user's intent, due to ${error.message}`,
+                error,
             );
         }
     }

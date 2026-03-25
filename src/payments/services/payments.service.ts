@@ -76,9 +76,14 @@ export class PaymentsService {
                 'Stripe actor resolution failed',
             );
 
+        if (!actor.user.country)
+            throw new BadRequestException(
+                'You need to specify your country in your profile before you connect your stripe account!',
+            );
+
         const platformUrl = process.env.RITI_DOMAIN_NAME?.startsWith('https://')
             ? process.env.RITI_DOMAIN_NAME
-            : 'https://riti-backend-dev.duckdns.org';
+            : 'www.riti.no';
 
         let account: Stripe.Account;
 
@@ -220,35 +225,42 @@ export class PaymentsService {
                 booking,
             );
 
-        const session = await this.stripe.getClient().checkout.sessions.create({
-            mode: 'payment',
-            metadata: {
-                bookingId: booking.id,
-                vendorId: booking.space.vendor.id,
-                renterId: booking.renterId,
-            },
-            line_items: [
-                {
-                    price_data: {
-                        currency: 'nok',
-                        product_data: {
-                            name: `Space Booking - ${booking.space.name}`,
-                        },
-                        unit_amount: totalAmountOre,
-                    },
-                    quantity: 1,
-                },
-            ],
-            payment_intent_data: {
+        const session = await this.stripe
+            .getClient()
+            .checkout.sessions.create({
+                mode: 'payment',
                 metadata: {
                     bookingId: booking.id,
                     vendorId: booking.space.vendor.id,
                     renterId: booking.renterId,
                 },
-            },
-            success_url: `${process.env.FRONTEND_URL}/bookings/${booking.id}?status=success`,
-            cancel_url: `${process.env.FRONTEND_URL}/bookings/${booking.id}?status=cancel`,
-        });
+                line_items: [
+                    {
+                        price_data: {
+                            currency: 'nok',
+                            product_data: {
+                                name: `Space Booking - ${booking.space.name}`,
+                            },
+                            unit_amount: totalAmountOre,
+                        },
+                        quantity: 1,
+                    },
+                ],
+                payment_intent_data: {
+                    metadata: {
+                        bookingId: booking.id,
+                        vendorId: booking.space.vendor.id,
+                        renterId: booking.renterId,
+                    },
+                },
+                success_url: `${process.env.FRONTEND_URL}/bookings/${booking.id}?status=success`,
+                cancel_url: `${process.env.FRONTEND_URL}/bookings/${booking.id}?status=cancel`,
+            })
+            .catch((error: any) => {
+                throw new BadGatewayException(
+                    `Error Processing request due to: ${error.message}`,
+                );
+            });
 
         if (!session.url)
             throw new InternalServerErrorException(
@@ -435,27 +447,11 @@ export class PaymentsService {
                     eventId: ticket.eventId,
                 },
             });
-
+        } else {
             return;
         }
 
-        const reversal = await this.stripe
-            .getClient()
-            .transfers.createReversal(ticket.stripeTransferId, {
-                amount: Math.round(Number(ticket.pricePaid) * 100),
-                metadata: {
-                    ticketId: ticket.id,
-                    type: 'ticket_refund_reversal',
-                },
-            });
-
-        await this.stripe.getClient().refunds.create({
-            payment_intent: ticket.stripePaymentIntentId,
-            metadata: {
-                ticketId: ticket.id,
-                reversalId: reversal.id,
-            },
-        });
+        this.logger.debug(`Fetching the refunded ticket: ${ticket.id}`);
 
         const refundedTicket = await this.db.ticket.findUnique({
             where: { id: ticket.id },
@@ -477,16 +473,14 @@ export class PaymentsService {
             },
         });
 
-        if (!refundedTicket) return;
+        this.logger.debug(
+            `found the ticket with ticketId: ${refundedTicket?.id}`,
+        );
 
-        await this.financialsService.recordLedgerEntry({
-            reference: `REF-${refundedTicket.id}`,
-            description: `Ticket refunded to ${refundedTicket.attendee.user.fullName}`,
-            type: FinancialType.REFUND,
-            amount: -Number(refundedTicket.pricePaid),
-            actorType: FinancialActor.ATTENDEE,
-            actorId: refundedTicket.attendee.userId,
-        });
+        if (!refundedTicket) {
+            this.logger.error(`failed to find the ticket!`);
+            return;
+        }
 
         this.emailsService
             .sendEventRefundConfirmationEmail(

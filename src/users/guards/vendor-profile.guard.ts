@@ -27,7 +27,7 @@ export class VendorProfileGuard implements CanActivate {
         const user: UserForTokenDto = request.user;
         if (!user.hasVendorProfile)
             throw new ForbiddenException(
-                'Only Vendors have access to access this endpoint',
+                'Only Vendors have to access this endpoint',
             );
         const canActivate: boolean = user.userType === 'VENDOR';
 
