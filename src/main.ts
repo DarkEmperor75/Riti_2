@@ -42,18 +42,13 @@ async function bootstrap() {
         }),
     );
 
-    // app.enableCors({
-    //     origin:
-    //         process.env.NODE_ENV === 'production'
-    //             ? process.env.FRONTEND_URL?.split(',')
-    //             : true,
-    //     credentials: true,
-    //     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-    // });
-
     app.enableCors({
-        origin: true, 
+        origin:
+            process.env.NODE_ENV === 'production'
+                ? process.env.FRONTEND_URL
+                : true,
         credentials: true,
+        methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
     });
 
     const config = new DocumentBuilder()

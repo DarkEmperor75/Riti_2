@@ -51,6 +51,7 @@ export class PaymentsCronService {
                             select: {
                                 userId: true,
                                 stripeAccountId: true,
+                                stripeOnboardingCompletedAt: true,
                                 user: {
                                     select: {
                                         fullName: true,
@@ -68,6 +69,7 @@ export class PaymentsCronService {
         for (const booking of eligibleBookings) {
             try {
                 if (!booking.space.vendor.stripeAccountId) continue;
+                if (!booking.space.vendor.stripeOnboardingCompletedAt) continue;
 
                 const transfer = await this.stripe.getClient().transfers.create(
                     {
@@ -204,6 +206,7 @@ export class PaymentsCronService {
                     select: {
                         userId: true,
                         stripeAccountId: true,
+                        stripeOnboardingCompletedAt: true,
                     },
                 },
             },
@@ -211,6 +214,7 @@ export class PaymentsCronService {
 
         for (const event of eligibleEvents) {
             if (!event.host.stripeAccountId) continue;
+            if (!event.host.stripeOnboardingCompletedAt) continue;
 
             const tickets = await this.db.ticket.findMany({
                 where: {
