@@ -24,11 +24,7 @@ import {
     VendorBookingsQueryDto,
 } from '../dto';
 import { plainToInstance } from 'class-transformer';
-import {
-    UserBookingDto,
-    UserBookingsListDto,
-    UserBookingsQueryDto,
-} from '../dto/user-bookings.dto';
+import { UserBookingsQueryDto } from '../dto/user-bookings.dto';
 import { BookingEntity } from '../entities';
 import { NotificationsService } from 'src/notifications/services';
 import { PaymentsService } from 'src/payments/services';
@@ -486,10 +482,7 @@ export class SpaceBookingsService {
         return updatedBooking;
     }
 
-    async getUserBookings(
-        userId: string,
-        query: UserBookingsQueryDto,
-    ): Promise<UserBookingsListDto> {
+    async getUserBookings(userId: string, query: UserBookingsQueryDto) {
         const { type = 'all', status, page, limit } = query;
         const skip = (page - 1) * limit;
 
@@ -517,6 +510,7 @@ export class SpaceBookingsService {
                             address: true,
                             location: true,
                             images: true,
+                            timezone: true,
                         },
                     },
                 },
@@ -538,6 +532,7 @@ export class SpaceBookingsService {
             city: booking.space.city,
             address: booking.space.address,
             location: booking.space.location,
+            timezone: booking.space.timezone,
             startTime: booking.startTime,
             endTime: booking.endTime,
             totalPrice: Number(booking.totalPrice),
@@ -547,7 +542,7 @@ export class SpaceBookingsService {
         }));
 
         return {
-            bookings: plainToInstance(UserBookingDto, bookingDtos),
+            bookings: bookingDtos,
             meta: {
                 page,
                 limit,

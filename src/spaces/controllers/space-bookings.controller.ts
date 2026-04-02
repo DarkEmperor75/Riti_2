@@ -695,7 +695,7 @@ export class SpaceBookingsController {
     async getMyBookings(
         @Query() query: UserBookingsQueryDto,
         @GetUser() user: UserForTokenDto,
-    ): Promise<UserBookingsListDto> {
+    ) {
         if (
             user.userType === UserType.VENDOR ||
             user.userType === UserType.ADMIN
