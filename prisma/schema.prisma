@@ -38,6 +38,12 @@ enum AllowedCountries {
   DK
   IS
   FI
+  DE
+  PL
+  NL
+  HU
+  BG
+  RO
 }
 
 enum HostStatus {
