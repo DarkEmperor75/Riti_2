@@ -822,6 +822,7 @@ export class SpaceBookingsController {
     async cancelBooking(
         @Param('bookingId') bookingId: string,
         @GetUser() user: UserForTokenDto,
+        @Query('scope') scope: 'single' | 'future' | 'all' = 'single',
     ): Promise<{ id: string; status: string }> {
         if (
             user.userType === UserType.VENDOR ||
@@ -831,7 +832,7 @@ export class SpaceBookingsController {
                 'Only Attendees and Hosts can access this route!',
             );
         }
-        await this.bookingsService.cancelBooking(bookingId, user.id);
+        await this.bookingsService.cancelBooking(bookingId, user.id, scope);
         return { id: bookingId, status: 'CANCELLED' };
     }
 }

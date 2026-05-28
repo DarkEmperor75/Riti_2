@@ -814,11 +814,16 @@ export class EventsService {
         if (filters.city) {
             where.booking = {
                 space: {
-                    vendor: {
-                        user: {
-                            city: filters.city,
+                    OR: [
+                        { city: filters.city },
+                        {
+                            vendor: {
+                                user: {
+                                    city: filters.city,
+                                },
+                            },
                         },
-                    },
+                    ],
                 },
             };
         }
@@ -885,6 +890,27 @@ export class EventsService {
                 totalPages: Math.ceil(total / limit),
             },
         };
+    }
+
+    async getUniqueEventCities(): Promise<string[]> {
+        const spaces = await this.db.space.findMany({
+            where: {
+                bookings: {
+                    some: {
+                        events: {
+                            some: {
+                                status: EventStatus.PUBLISHED,
+                            },
+                        },
+                    },
+                },
+            },
+            select: {
+                city: true,
+            },
+            distinct: ['city'],
+        });
+        return spaces.map((s) => s.city).filter(Boolean).sort();
     }
 
     async getPublicEventById(eventId: string): Promise<PublicEventResponseDto> {

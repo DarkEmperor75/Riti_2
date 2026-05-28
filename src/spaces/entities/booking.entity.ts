@@ -53,14 +53,14 @@ export class BookingEntity {
             );
         }
 
-        if (space.minLeadTimeHours) {
-            const leadTimeHours =
-                (startDateTime.getTime() - Date.now()) / (1000 * 60 * 60);
-            if (leadTimeHours < space.minLeadTimeHours) {
-                throw new BadRequestException(
-                    `Minimum ${space.minLeadTimeHours}h advance notice required`,
-                );
-            }
+        const leadTimeMin = space.minLeadTimeHours != null ? space.minLeadTimeHours * 60 : 30;
+        const advanceTimeMin = (startDateTime.getTime() - Date.now()) / (1000 * 60);
+        if (advanceTimeMin < leadTimeMin) {
+            throw new BadRequestException(
+                space.minLeadTimeHours != null
+                    ? `Minimum ${space.minLeadTimeHours}h advance notice required`
+                    : `This slot is unavailable due to lead time restriction`,
+            );
         }
 
         if (space.daysBlocked?.length) {

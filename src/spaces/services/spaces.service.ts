@@ -790,6 +790,24 @@ export class SpacesService {
         };
     }
 
+    async getUniqueSpaceCities(): Promise<string[]> {
+        const spaces = await this.db.space.findMany({
+            where: {
+                status: SpaceStatus.ACTIVE,
+                isSuspended: false,
+                vendor: {
+                    vendorStatus: VendorStatus.APPROVED,
+                    stripeChargesEnabled: true,
+                },
+            },
+            select: {
+                city: true,
+            },
+            distinct: ['city'],
+        });
+        return spaces.map((s) => s.city).filter(Boolean).sort();
+    }
+
     async getPublicSpace(spaceId: string): Promise<SpacePublicDto> {
         const space = await this.db.space.findFirst({
             where: {

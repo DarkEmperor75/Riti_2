@@ -59,6 +59,14 @@ export class SpacesController {
     private readonly logger = new Logger(SpacesController.name);
     constructor(private readonly spacesService: SpacesService) {}
 
+    @Get('cities')
+    @Public()
+    @ApiOperation({ summary: 'Get unique cities of active spaces' })
+    @ApiOkResponse({ type: [String] })
+    async getUniqueCities(): Promise<string[]> {
+        return this.spacesService.getUniqueSpaceCities();
+    }
+
     @Get()
     @ApiOperation({ summary: 'Discover available spaces' })
     @ApiQuery({ name: 'city', example: 'Oslo' })

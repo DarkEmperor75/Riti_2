@@ -69,6 +69,18 @@ export class EventsController {
         private readonly eventsCronService: EventCronService,
     ) {}
 
+    @Get('cities')
+    @Public()
+    @ApiOperation({
+        summary: 'Get unique cities of published events',
+    })
+    @ApiOkResponse({
+        type: [String],
+    })
+    async getUniqueCities(): Promise<string[]> {
+        return this.eventsService.getUniqueEventCities();
+    }
+
     @ApiExtraModels(EventPreviewResponseDto)
     @Get()
     @Public()

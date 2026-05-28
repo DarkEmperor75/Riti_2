@@ -15,6 +15,9 @@ import {
     Prisma,
     StripePaymentStatus,
 } from '@prisma/client';
+import { v4 as uuidv4 } from 'uuid';
+import { DateTime } from 'luxon';
+import dayjs from 'dayjs';
 import { DatabaseService } from 'src/database/database.service';
 import { CreateBookingDto } from '../dto/create-booking.dto';
 import {
@@ -83,46 +86,104 @@ export class SpaceBookingsService {
             renterId,
         );
 
+        const isRecurring = dto.isRecurring === true || String(dto.isRecurring) === 'true';
+        const weeks = isRecurring ? (Number(dto.recurringWeeks) || 1) : 1;
+
+        if (isRecurring && (weeks < 1 || weeks > 52)) {
+            throw new BadRequestException('Recurring weeks must be between 1 and 52');
+        }
+
+        const occurrences: Array<{ start: Date; end: Date }> = [];
+        const dtStart = DateTime.fromJSDate(startDateTimeUTC, { zone: 'utc' }).setZone(space.timezone);
+        const dtEnd = DateTime.fromJSDate(endDateTimeUTC, { zone: 'utc' }).setZone(space.timezone);
+
+        for (let w = 0; w < weeks; w++) {
+            const occStart = dtStart.plus({ weeks: w }).toUTC().toJSDate();
+            const occEnd = dtEnd.plus({ weeks: w }).toUTC().toJSDate();
+            occurrences.push({ start: occStart, end: occEnd });
+        }
+
+        // Validate blocked days for all occurrences
+        if (space.daysBlocked?.length) {
+            for (const occ of occurrences) {
+                const bookingStart = dayjs(occ.start).startOf('day');
+                const bookingEnd = dayjs(occ.end).endOf('day');
+
+                const isBlocked = space.daysBlocked.some(
+                    (d) =>
+                        dayjs(d.startingDate).isBefore(bookingEnd) &&
+                        dayjs(d.endingDate).isAfter(bookingStart),
+                );
+
+                if (isBlocked) {
+                    throw new BadRequestException(
+                        `One or more selected dates are blocked by the vendor (e.g. ${dayjs(occ.start).format('YYYY-MM-DD')})`,
+                    );
+                }
+            }
+        }
+
+        const recurrenceGroupId = isRecurring ? `rec_${uuidv4()}` : null;
+
         return this.db.$transaction(async (tx) => {
+            const bufferMs = 30 * 60 * 1000;
+            const OR_conditions = occurrences.map(occ => {
+                const searchStart = new Date(occ.start.getTime() - bufferMs);
+                const searchEnd = new Date(occ.end.getTime() + bufferMs);
+                return {
+                    startTime: { lt: searchEnd },
+                    endTime: { gt: searchStart },
+                };
+            });
+
             const conflict = await tx.booking.findFirst({
                 where: {
                     spaceId,
-                    status: { in: ['APPROVED', 'PAID'] },
-                    OR: [
-                        {
-                            startTime: { lt: endDateTimeUTC },
-                            endTime: { gt: startDateTimeUTC },
-                        },
-                    ],
+                    status: { in: ['APPROVED', 'PAID', 'COMPLETED'] },
+                    OR: OR_conditions,
                 },
             });
 
-            if (conflict) throw new ConflictException('Time slot unavailable');
+            if (conflict) {
+                throw new ConflictException('Time slot unavailable due to booking conflict or transition buffer');
+            }
 
-            const result = await tx.booking.create({
-                data: {
-                    spaceId,
-                    renterId,
-                    startTime: startDateTimeUTC,
-                    endTime: endDateTimeUTC,
-                    totalPrice: new Prisma.Decimal(
-                        space.pricePerHour.toNumber() * durationHours,
-                    ),
-                    status: 'PENDING',
-                    expiryTime: new Date(Date.now() + 24 * 60 * 60 * 1000),
-                    note,
-                },
-                select: {
-                    id: true,
-                    spaceId: true,
-                    status: true,
-                    renter: {
-                        select: {
-                            fullName: true,
+            const createdBookings: Array<{
+                id: string;
+                spaceId: string;
+                status: string;
+                renter: { fullName: string };
+            }> = [];
+            for (const occ of occurrences) {
+                const res = await tx.booking.create({
+                    data: {
+                        spaceId,
+                        renterId,
+                        startTime: occ.start,
+                        endTime: occ.end,
+                        totalPrice: new Prisma.Decimal(
+                            space.pricePerHour.toNumber() * durationHours,
+                        ),
+                        status: 'PENDING',
+                        expiryTime: new Date(Date.now() + 24 * 60 * 60 * 1000),
+                        note,
+                        recurrenceGroupId,
+                    },
+                    select: {
+                        id: true,
+                        spaceId: true,
+                        status: true,
+                        renter: {
+                            select: {
+                                fullName: true,
+                            },
                         },
                     },
-                },
-            });
+                });
+                createdBookings.push(res);
+            }
+
+            const result = createdBookings[0];
 
             await this.notificationsService.queueNotification({
                 userId: space.vendor.userId,
@@ -196,6 +257,7 @@ export class SpaceBookingsService {
             totalPrice: Number(booking.totalPrice),
             note: booking.note,
             relativeTime: this.formatRelativeTime(booking.createdAt),
+            recurrenceGroupId: booking.recurrenceGroupId,
         }));
 
         return {
@@ -251,16 +313,17 @@ export class SpaceBookingsService {
             );
 
             if (newStatus === BookingStatus.APPROVED) {
+                const bufferMs = 30 * 60 * 1000;
+                const searchStart = new Date(booking.startTime.getTime() - bufferMs);
+                const searchEnd = new Date(booking.endTime.getTime() + bufferMs);
+
                 const overlap = await tx.booking.findFirst({
                     where: {
                         spaceId: booking.spaceId,
-                        status: { in: ['APPROVED', 'PAID'] },
-                        OR: [
-                            {
-                                startTime: { lt: booking.endTime },
-                                endTime: { gt: booking.startTime },
-                            },
-                        ],
+                        status: { in: ['APPROVED', 'PAID', 'COMPLETED'] },
+                        id: { not: bookingId },
+                        startTime: { lt: searchEnd },
+                        endTime: { gt: searchStart },
                     },
                 });
 
@@ -307,13 +370,9 @@ export class SpaceBookingsService {
                     where: {
                         spaceId: booking.spaceId,
                         status: 'PENDING',
-                        OR: [
-                            {
-                                startTime: { lt: booking.endTime },
-                                endTime: { gt: booking.startTime },
-                            },
-                        ],
                         id: { not: bookingId },
+                        startTime: { lt: searchEnd },
+                        endTime: { gt: searchStart },
                     },
                     data: { status: 'REJECTED' },
                 });
@@ -539,6 +598,7 @@ export class SpaceBookingsService {
             note: booking.note,
             relativeTime: this.formatRelativeTime(booking.createdAt),
             rejectedReason: booking.bookingRejectionReason,
+            recurrenceGroupId: booking.recurrenceGroupId,
         }));
 
         return {
@@ -552,7 +612,11 @@ export class SpaceBookingsService {
         };
     }
 
-    async cancelBooking(bookingId: string, renterId: string): Promise<void> {
+    async cancelBooking(
+        bookingId: string,
+        renterId: string,
+        scope: 'single' | 'future' | 'all' = 'single',
+    ): Promise<void> {
         const booking = await this.db.booking.findUnique({
             where: { id: bookingId },
             select: {
@@ -562,6 +626,7 @@ export class SpaceBookingsService {
                 stripePaymentIntentId: true,
                 stripeRefundId: true,
                 totalPrice: true,
+                recurrenceGroupId: true,
                 renter: {
                     select: {
                         id: true,
@@ -596,123 +661,170 @@ export class SpaceBookingsService {
         if (booking.renter.id !== renterId)
             throw new ForbiddenException('Not your booking');
 
-        if (
-            booking.status === 'CANCELLED' ||
-            booking.status === 'EXPIRED' ||
-            booking.status === 'REJECTED'
-        ) {
-            throw new BadRequestException(
-                `Booking doesn't qualify for a cancellation`,
-            );
-        }
+        let bookingsToCancel: Array<{
+            id: string;
+            status: BookingStatus;
+            startTime: Date;
+            stripePaymentIntentId: string | null;
+            stripeRefundId: string | null;
+            totalPrice: Prisma.Decimal;
+        }> = [booking as any];
 
-        if (booking.stripeRefundId)
-            throw new BadRequestException('Booking already refunded');
-
-        if (booking.status === 'APPROVED' || booking.status === 'PAID') {
-            const now = new Date();
-            const cutoff = new Date(
-                booking.startTime.getTime() - 24 * 60 * 60 * 1000,
-            );
-
-            if (now > cutoff) {
-                throw new BadRequestException(
-                    'Cannot cancel within 24h of start time',
-                );
+        if (booking.recurrenceGroupId) {
+            if (scope === 'future') {
+                const futureBookings = await this.db.booking.findMany({
+                    where: {
+                        recurrenceGroupId: booking.recurrenceGroupId,
+                        startTime: { gte: booking.startTime },
+                        status: { notIn: ['CANCELLED', 'EXPIRED', 'REJECTED'] },
+                    },
+                    select: {
+                        id: true,
+                        status: true,
+                        startTime: true,
+                        stripePaymentIntentId: true,
+                        stripeRefundId: true,
+                        totalPrice: true,
+                    },
+                });
+                bookingsToCancel = futureBookings;
+            } else if (scope === 'all') {
+                const allBookings = await this.db.booking.findMany({
+                    where: {
+                        recurrenceGroupId: booking.recurrenceGroupId,
+                        status: { notIn: ['CANCELLED', 'EXPIRED', 'REJECTED'] },
+                    },
+                    select: {
+                        id: true,
+                        status: true,
+                        startTime: true,
+                        stripePaymentIntentId: true,
+                        stripeRefundId: true,
+                        totalPrice: true,
+                    },
+                });
+                bookingsToCancel = allBookings;
             }
         }
 
-        let refundId: string | null = null;
-
-        if (booking.status === BookingStatus.PAID) {
-            if (!booking.stripePaymentIntentId)
+        for (const b of bookingsToCancel) {
+            if (
+                b.status === 'CANCELLED' ||
+                b.status === 'EXPIRED' ||
+                b.status === 'REJECTED'
+            ) {
                 throw new BadRequestException(
-                    'Missing payment intent for refund',
+                    `Booking ${b.id.slice(-4)} doesn't qualify for a cancellation`,
+                );
+            }
+
+            if (b.stripeRefundId)
+                throw new BadRequestException(`Booking ${b.id.slice(-4)} already refunded`);
+
+            if (b.status === 'APPROVED' || b.status === 'PAID') {
+                const now = new Date();
+                const cutoff = new Date(
+                    b.startTime.getTime() - 24 * 60 * 60 * 1000,
                 );
 
-            refundId = await this.paymentService.refundStripePayment(
-                booking.stripePaymentIntentId,
-                bookingId,
-            );
-
-            await this.financialsService.recordLedgerEntry({
-                reference: `REF-${refundId}`,
-                description: `Ticket refunded to ${booking.renter.fullName}`,
-                type: FinancialType.REFUND,
-                amount: -Number(booking.totalPrice),
-                actorType:
-                    booking.renter.userType === 'HOST'
-                        ? FinancialActor.HOST
-                        : FinancialActor.ATTENDEE,
-                actorId: booking.renter.id,
-            });
-
-            const logger = new Logger(SpaceBookingsService.name);
-            logger.log(`Refund ID: ${refundId}`);
+                if (now > cutoff) {
+                    throw new BadRequestException(
+                        `Cannot cancel booking ${b.id.slice(-4)} within 24h of start time`,
+                    );
+                }
+            }
         }
 
-        await this.db.$transaction(async (tx) => {
-            await tx.booking.update({
-                where: { id: bookingId },
-                data: {
-                    status: BookingStatus.CANCELLED,
-                    stripeRefundId: refundId ?? undefined,
-                    refundedAt: refundId ? new Date() : null,
-                    stripePaymentStatus: StripePaymentStatus.REFUNDED,
-                    updatedAt: new Date(),
-                },
+        for (const b of bookingsToCancel) {
+            let refundId: string | null = null;
+
+            if (b.status === BookingStatus.PAID) {
+                if (!b.stripePaymentIntentId)
+                    throw new BadRequestException(
+                        `Missing payment intent for refund on booking ${b.id.slice(-4)}`,
+                    );
+
+                refundId = await this.paymentService.refundStripePayment(
+                    b.stripePaymentIntentId,
+                    b.id,
+                );
+
+                await this.financialsService.recordLedgerEntry({
+                    reference: `REF-${refundId}`,
+                    description: `Ticket refunded to ${booking.renter.fullName}`,
+                    type: FinancialType.REFUND,
+                    amount: -Number(b.totalPrice),
+                    actorType:
+                        booking.renter.userType === 'HOST'
+                            ? FinancialActor.HOST
+                            : FinancialActor.ATTENDEE,
+                    actorId: booking.renter.id,
+                });
+            }
+
+            await this.db.$transaction(async (tx) => {
+                await tx.booking.update({
+                    where: { id: b.id },
+                    data: {
+                        status: BookingStatus.CANCELLED,
+                        stripeRefundId: refundId ?? undefined,
+                        refundedAt: refundId ? new Date() : null,
+                        stripePaymentStatus: StripePaymentStatus.REFUNDED,
+                        updatedAt: new Date(),
+                    },
+                });
             });
-        });
 
-        this.notificationsService.queueNotification({
-            userId: renterId,
-            type: NotificationType.BOOKING_CANCELLED,
-            title: `Booking Cancelled`,
-            message: `You have cancelled your booking for ${booking.space.name}`,
-        });
+            this.notificationsService.queueNotification({
+                userId: renterId,
+                type: NotificationType.BOOKING_CANCELLED,
+                title: `Booking Cancelled`,
+                message: `You have cancelled your booking for ${booking.space.name}`,
+            });
 
-        this.emailsService
-            .sendBookingCancellationEmail(
-                {
-                    id: booking.renter.id,
-                    fullName: booking.renter.fullName,
-                    email: booking.renter.email,
-                    language: booking.renter.language,
-                },
-                {
-                    id: booking.id,
-                    spaceName: booking.space.name,
-                    date: this.tzService.toLocalDate(
-                        booking.startTime,
-                        booking.space.timezone!,
-                    ),
-                },
-            )
-            .catch((err) =>
-                this.logger.error('Booking cancellation email failed', err),
-            );
+            this.emailsService
+                .sendBookingCancellationEmail(
+                    {
+                        id: booking.renter.id,
+                        fullName: booking.renter.fullName,
+                        email: booking.renter.email,
+                        language: booking.renter.language,
+                    },
+                    {
+                        id: b.id,
+                        spaceName: booking.space.name,
+                        date: this.tzService.toLocalDate(
+                            b.startTime,
+                            booking.space.timezone!,
+                        ),
+                    },
+                )
+                .catch((err) =>
+                    this.logger.error('Booking cancellation email failed', err),
+                );
 
-        this.emailsService
-            .sendVendorSpaceBookingCancelledEmail(
-                {
-                    id: booking.space.vendor.userId,
-                    fullName: booking.space.vendor.user.fullName,
-                    email: booking.space.vendor.user.email,
-                    language: booking.space.vendor.user.language,
-                },
-                {
-                    id: booking.id,
-                    spaceName: booking.space.name,
-                    customerName: booking.renter.fullName,
-                    date: this.tzService.toLocalDate(
-                        booking.startTime,
-                        booking.space.timezone!,
-                    ),
-                },
-            )
-            .catch((err) =>
-                this.logger.error('Vendor booking cancelled email failed', err),
-            );
+            this.emailsService
+                .sendVendorSpaceBookingCancelledEmail(
+                    {
+                        id: booking.space.vendor.userId,
+                        fullName: booking.space.vendor.user.fullName,
+                        email: booking.space.vendor.user.email,
+                        language: booking.space.vendor.user.language,
+                    },
+                    {
+                        id: b.id,
+                        spaceName: booking.space.name,
+                        customerName: booking.renter.fullName,
+                        date: this.tzService.toLocalDate(
+                            b.startTime,
+                            booking.space.timezone!,
+                        ),
+                    },
+                )
+                .catch((err) =>
+                    this.logger.error('Vendor booking cancelled email failed', err),
+                );
+        }
     }
 
     private formatRelativeTime(createdAt: Date): string {

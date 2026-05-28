@@ -200,6 +200,9 @@ export class PaymentsService {
                 expiryTime: true,
                 stripePaymentIntentId: true,
                 totalPrice: true,
+                startTime: true,
+                endTime: true,
+                spaceId: true,
                 space: {
                     select: {
                         name: true,
@@ -219,6 +222,24 @@ export class PaymentsService {
         if (!booking) throw new NotFoundException('Booking not found');
 
         PaymentsBookingsEntity.validateSpaceBookingPayment(booking, userId);
+
+        const bufferMs = 30 * 60 * 1000;
+        const searchStart = new Date(booking.startTime.getTime() - bufferMs);
+        const searchEnd = new Date(booking.endTime.getTime() + bufferMs);
+
+        const conflict = await this.db.booking.findFirst({
+            where: {
+                spaceId: booking.spaceId,
+                status: { in: ['APPROVED', 'PAID', 'COMPLETED'] },
+                id: { not: bookingId },
+                startTime: { lt: searchEnd },
+                endTime: { gt: searchStart },
+            },
+        });
+
+        if (conflict) {
+            throw new BadRequestException('This slot is no longer available due to booking conflict or transition buffer.');
+        }
 
         const { totalAmountOre, applicationFeeAmount, vendorPayoutAmount } =
             PaymentsBookingsEntity.extractSpaceBookingPaymentCalculation(

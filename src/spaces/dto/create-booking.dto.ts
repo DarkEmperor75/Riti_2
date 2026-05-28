@@ -1,6 +1,6 @@
 import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
 import { Type } from "class-transformer";
-import { IsInt, IsOptional, IsString, MaxLength, Min } from "class-validator";
+import { IsBoolean, IsInt, IsOptional, IsString, Max, MaxLength, Min } from "class-validator";
 
 export class CreateBookingDto {
     @ApiProperty({ example: 'clabc123' })
@@ -26,4 +26,17 @@ export class CreateBookingDto {
     @IsString()
     @MaxLength(500)
     note?: string;
+
+    @ApiPropertyOptional({ example: false })
+    @IsOptional()
+    @IsBoolean()
+    isRecurring?: boolean;
+
+    @ApiPropertyOptional({ example: 6 })
+    @IsOptional()
+    @IsInt()
+    @Min(1)
+    @Max(52)
+    @Type(() => Number)
+    recurringWeeks?: number;
 }
