@@ -45,6 +45,12 @@ jobs:
 
             docker load < riti-backend.tar.gz
 
+            # Run database push to sync the production database schema
+            docker run --rm \
+              --env-file ~/.env \
+              riti-backend \
+              npx prisma db push --accept-data-loss
+
             docker stop riti || true
             docker rm riti || true
 
