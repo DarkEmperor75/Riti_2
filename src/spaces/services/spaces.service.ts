@@ -712,11 +712,10 @@ export class SpacesService {
 
         const skip = (page - 1) * limit;
         const where: Prisma.SpaceWhereInput = {
-            status: SpaceStatus.ACTIVE,
+            status: { in: [SpaceStatus.ACTIVE, SpaceStatus.UNDER_REVIEW] },
             isSuspended: false,
             vendor: {
                 vendorStatus: VendorStatus.APPROVED,
-                stripeChargesEnabled: true,
             },
             ...(city && { city }),
             ...(spaceType && { spaceType }),
@@ -793,11 +792,10 @@ export class SpacesService {
     async getUniqueSpaceCities(): Promise<string[]> {
         const spaces = await this.db.space.findMany({
             where: {
-                status: SpaceStatus.ACTIVE,
+                status: { in: [SpaceStatus.ACTIVE, SpaceStatus.UNDER_REVIEW] },
                 isSuspended: false,
                 vendor: {
                     vendorStatus: VendorStatus.APPROVED,
-                    stripeChargesEnabled: true,
                 },
             },
             select: {
@@ -812,11 +810,10 @@ export class SpacesService {
         const space = await this.db.space.findFirst({
             where: {
                 id: spaceId,
-                status: SpaceStatus.ACTIVE,
+                status: { in: [SpaceStatus.ACTIVE, SpaceStatus.UNDER_REVIEW] },
                 isSuspended: false,
                 vendor: {
                     vendorStatus: VendorStatus.APPROVED,
-                    stripeChargesEnabled: true,
                 },
             },
             select: {

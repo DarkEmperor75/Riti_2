@@ -44,15 +44,15 @@ export class PaymentsBookingsEntity {
 
         const vendor = booking.space.vendor;
 
-        if (
-            !vendor.stripeAccountId ||
-            !vendor.stripeChargesEnabled ||
-            !vendor.stripePayoutsEnabled
-        ) {
-            throw new BadRequestException(
-                'Vendor is not ready to receive payments',
-            );
-        }
+        // if (
+        //     !vendor.stripeAccountId ||
+        //     !vendor.stripeChargesEnabled ||
+        //     !vendor.stripePayoutsEnabled
+        // ) {
+        //     throw new BadRequestException(
+        //         'Vendor is not ready to receive payments',
+        //     );
+        // }
     }
 
     static extractSpaceBookingPaymentCalculation(

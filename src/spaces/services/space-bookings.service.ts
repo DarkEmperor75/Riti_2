@@ -365,14 +365,14 @@ export class SpaceBookingsService {
                     );
                 }
 
-                if (!booking.space.vendor.stripeChargesEnabled)
-                    throw new BadRequestException(
-                        'Stripe charges are not enabled for this vendor',
-                    );
-                if (!booking.space.vendor.stripePayoutsEnabled)
-                    throw new BadRequestException(
-                        'Stripe payouts are not enabled for this vendor',
-                    );
+                // if (!booking.space.vendor.stripeChargesEnabled)
+                //     throw new BadRequestException(
+                //         'Stripe charges are not enabled for this vendor',
+                //     );
+                // if (!booking.space.vendor.stripePayoutsEnabled)
+                //     throw new BadRequestException(
+                //         'Stripe payouts are not enabled for this vendor',
+                //     );
 
                 await tx.booking.updateMany({
                     where: {
