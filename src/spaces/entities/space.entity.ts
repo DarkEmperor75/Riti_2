@@ -186,6 +186,9 @@ export class SpaceEntity {
             ...(dto.minLeadTimeHours !== undefined && {
                 minLeadTimeHours: dto.minLeadTimeHours,
             }),
+            ...(dto.bufferTimeMinutes !== undefined && {
+                bufferTimeMinutes: dto.bufferTimeMinutes,
+            }),
             ...(dto.multiDayBookingAllowed !== undefined && {
                 multiDayBookingAllowed: dto.multiDayBookingAllowed,
             }),

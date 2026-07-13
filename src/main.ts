@@ -25,7 +25,8 @@ async function bootstrap() {
     const expressApp = app.getHttpAdapter().getInstance();
 
     expressApp.get('/', (req: Request, res: Response) => {
-        res.redirect('https://www.youtube.com/watch?v=dQw4w9WgXcQ');
+        const frontendUrl = configService.get('FRONTEND_URL') || 'http://localhost:3000';
+        res.redirect(frontendUrl);
     });
 
     app.use(helmet());
@@ -66,6 +67,6 @@ async function bootstrap() {
 
     app.setGlobalPrefix('api');
 
-    await app.listen(process.env.PORT ?? 3000);
+    await app.listen(process.env.PORT ?? 5000);
 }
 bootstrap();

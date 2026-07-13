@@ -115,16 +115,31 @@ export class UsersService {
         if (type === UserType.ADMIN)
             return { succes: false, message: 'Forbidden Request to be admin' };
 
-        if (currentType === UserType.ADMIN)
+        // Fetch user from DB to get the actual userType, avoiding stale JWT role data
+        const dbUser = await this.prisma.user.findUnique({
+            where: { id: userId },
+            select: { userType: true },
+        });
+
+        if (!dbUser) {
+            return {
+                succes: false,
+                message: 'User not found',
+            };
+        }
+
+        const actualCurrentType = dbUser.userType;
+
+        if (actualCurrentType === UserType.ADMIN)
             return { succes: false, message: 'Admins cannot switch modes' };
 
-        if (currentType === UserType.VENDOR)
+        if (actualCurrentType === UserType.VENDOR)
             return {
                 succes: false,
                 message: 'Once you opt for vendor mode you cannot switch back',
             };
 
-        if (currentType === type)
+        if (actualCurrentType === type)
             return {
                 succes: false,
                 message: `You are already in ${type} mode!`,

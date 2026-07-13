@@ -114,4 +114,16 @@ export class SpacePublicDto {
     @ApiProperty({ example: 'Europe/Oslo' })
     @Expose()
     timezone: string;
+
+    @ApiProperty({ example: 2, nullable: true })
+    @Expose()
+    minLeadTimeHours: number | null;
+
+    @ApiProperty({ example: 30, nullable: true })
+    @Expose()
+    bufferTimeMinutes: number | null;
+
+    @ApiProperty({ example: 1, nullable: true })
+    @Expose()
+    minBookingDurationHours: number | null;
 }

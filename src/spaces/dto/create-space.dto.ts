@@ -3,6 +3,7 @@ import {
     IsNumber,
     IsInt,
     Min,
+    Max,
     IsOptional,
     IsEnum,
     IsArray,
@@ -166,6 +167,19 @@ export class CreateSpaceDto {
     @Min(0, { message: 'Lead time cannot be negative' })
     @IsOptional()
     minLeadTimeHours?: number;
+
+    @ApiPropertyOptional({
+        description: 'Cleanup / setup buffer between consecutive bookings (minutes). Defaults to 30.',
+        example: 30,
+        minimum: 0,
+        maximum: 480,
+    })
+    @Type(() => Number)
+    @IsInt({ message: 'Must be an integer' })
+    @Min(0, { message: 'Buffer time cannot be negative' })
+    @Max(480, { message: 'Buffer time cannot exceed 480 minutes (8 hours)' })
+    @IsOptional()
+    bufferTimeMinutes?: number;
 
     @ApiPropertyOptional({
         description: 'Allow bookings spanning multiple days',

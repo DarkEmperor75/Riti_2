@@ -126,7 +126,9 @@ export class SpaceBookingsService {
         const recurrenceGroupId = isRecurring ? `rec_${uuidv4()}` : null;
 
         return this.db.$transaction(async (tx) => {
-            const bufferMs = 30 * 60 * 1000;
+            // Use space's configured buffer time (default 30 min for backward compatibility)
+            const bufferMinutes = space.bufferTimeMinutes ?? 30;
+            const bufferMs = bufferMinutes * 60 * 1000;
             const OR_conditions = occurrences.map(occ => {
                 const searchStart = new Date(occ.start.getTime() - bufferMs);
                 const searchEnd = new Date(occ.end.getTime() + bufferMs);
@@ -145,7 +147,10 @@ export class SpaceBookingsService {
             });
 
             if (conflict) {
-                throw new ConflictException('Time slot unavailable due to booking conflict or transition buffer');
+                const bufferMsg = bufferMinutes > 0
+                    ? ` (includes ${bufferMinutes}-min cleanup buffer)`
+                    : '';
+                throw new ConflictException(`Time slot unavailable due to booking conflict${bufferMsg}`);
             }
 
             const createdBookings: Array<{
@@ -292,6 +297,7 @@ export class SpaceBookingsService {
                     endTime: true,
                     space: {
                         select: {
+                            bufferTimeMinutes: true,
                             vendor: {
                                 select: {
                                     userId: true,
@@ -313,7 +319,9 @@ export class SpaceBookingsService {
             );
 
             if (newStatus === BookingStatus.APPROVED) {
-                const bufferMs = 30 * 60 * 1000;
+                // Use space's configured buffer (default 30 min for backward compat)
+                const bufferMinutes = booking.space.bufferTimeMinutes ?? 30;
+                const bufferMs = bufferMinutes * 60 * 1000;
                 const searchStart = new Date(booking.startTime.getTime() - bufferMs);
                 const searchEnd = new Date(booking.endTime.getTime() + bufferMs);
 

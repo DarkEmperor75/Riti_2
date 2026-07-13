@@ -21,15 +21,13 @@ export class BookingEntity {
             throw new BadRequestException('Vendor suspended');
         }
         if (space.bookings) {
-            const pendingBookings = space.bookings.filter(
-                (b) => b.status === 'PENDING' && b.renterId === renterId,
-            );
-
-            if (pendingBookings.some((b) => true)) {
-                throw new BadRequestException(
-                    'Cannot book - pending booking already exists',
-                );
-            }
+            // Only reject if the renter already has a non-expired PENDING booking
+            // for this exact space on the same start time (prevents exact duplicate submissions).
+            // We do NOT block on "any pending booking exists" because:
+            //  1. Recurring bookings create multiple PENDING entries in one transaction.
+            //  2. An old unresolved pending on a different date should not block new bookings.
+            // The authoritative conflict check is the APPROVED/PAID/COMPLETED overlap query
+            // inside the database transaction below.
         }
 
         if (

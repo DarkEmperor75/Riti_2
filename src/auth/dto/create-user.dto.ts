@@ -57,7 +57,7 @@ export class CreateUserDto {
         description: 'Country code (NO, SE, DK)',
     })
     @IsEnum(AllowedCountries, {
-        message: 'Only Norway, Sweden, Finland, Iceland and Denmark allowed',
+        message: 'Only Norway, Sweden, Finland, Iceland, Denmark and India allowed',
     })
     country: AllowedCountries;
 

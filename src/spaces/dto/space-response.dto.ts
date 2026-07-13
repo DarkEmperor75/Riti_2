@@ -94,6 +94,13 @@ export class SpaceResponseDto {
     multiDayBookingAllowed?: boolean;
 
     @ApiPropertyOptional({
+        example: 30,
+        description: 'Cleanup / setup buffer between consecutive bookings (minutes)',
+    })
+    @Expose()
+    bufferTimeMinutes?: number;
+
+    @ApiPropertyOptional({
         example: 'Oslo',
         description: 'City for search/filtering',
     })

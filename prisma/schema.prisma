@@ -38,7 +38,9 @@ enum AllowedCountries {
   DK
   IS
   FI
+  IN
 }
+
 
 enum HostStatus {
   ACTIVE
@@ -546,7 +548,8 @@ model Space {
   pricePerHour    Decimal
 
   minBookingDurationHours Int?
-  minLeadTimeHours        Int?
+  minLeadTimeHours        Int?     // Minutes of advance notice required before booking start
+  bufferTimeMinutes       Int?     // Cleanup/setup buffer between consecutive bookings (default 30)
   multiDayBookingAllowed  Boolean?
 
   status       SpaceStatus @default(UNDER_REVIEW)
@@ -638,6 +641,7 @@ model Booking {
   @@index([renterId])
   @@index([spaceId])
   @@index([recurrenceGroupId])
+  @@index([spaceId, startTime, endTime, status]) // Composite index for conflict detection queries
   @@map("bookings")
 }
 

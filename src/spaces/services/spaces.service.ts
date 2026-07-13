@@ -835,6 +835,9 @@ export class SpacesService {
                 instructionsPdf: true,
                 rules: true,
                 timezone: true,
+                minLeadTimeHours: true,
+                bufferTimeMinutes: true,
+                minBookingDurationHours: true,
                 vendor: { select: { businessName: true, vendorStatus: true } },
                 bookings: {
                     where: {
@@ -864,6 +867,9 @@ export class SpacesService {
                 isAvailable: space.bookings.length === 0,
                 location: space.location,
                 timezone: space.timezone ?? DEFAULT_TIMEZONE,
+                minLeadTimeHours: space.minLeadTimeHours ?? null,
+                bufferTimeMinutes: space.bufferTimeMinutes ?? null,
+                minBookingDurationHours: space.minBookingDurationHours ?? null,
             },
             {
                 excludeExtraneousValues: true,

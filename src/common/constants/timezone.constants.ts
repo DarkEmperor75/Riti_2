@@ -6,6 +6,7 @@ export const COUNTRY_TIMEZONE_MAP: Record<AllowedCountries, string> = {
     DK: 'Europe/Copenhagen',
     FI: 'Europe/Helsinki',
     IS: 'Atlantic/Reykjavik',
+    IN: 'Asia/Kolkata',
 };
 
 export const DEFAULT_TIMEZONE = 'Europe/Oslo';
