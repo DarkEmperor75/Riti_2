@@ -179,7 +179,6 @@ export class SpaceEntity {
             pricePerHour: dto.pricePerHour,
             location: dto.location,
             timezone,
-            status: SpaceStatus.ACTIVE,
             ...(dto.rules !== undefined && { rules: dto.rules }),
             ...(dto.minBookingDurationHours !== undefined && {
                 minBookingDurationHours: dto.minBookingDurationHours,
